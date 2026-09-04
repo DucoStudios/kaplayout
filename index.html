@@ -30,7 +30,7 @@
   input, select, button{
     font-family:inherit; font-size:13px;
   }
-  input[type="number"], input[type="text"]{
+  input[type="number"], input[type="text"], select{
     width:100%; padding:6px 8px; border:1px solid var(--line);
     border-radius:5px; background:var(--paper); color:var(--ink);
   }
@@ -176,12 +176,24 @@
       </div>
       <label>Färg</label>
       <input id="newColor" type="color" value="#c9b88a">
+      <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:12.5px;color:var(--ink-2);margin-top:10px;">
+        <input id="newIsBoard" type="checkbox" style="width:auto;"> Grundbräda (bakgrund — kolliderar inte med det du lägger ovanpå)
+      </label>
       <div class="btnrow"><button id="btnAdd" style="flex:1">Lägg till</button></div>
 
       <div id="objList">
         <h2>Objekt</h2>
         <div class="hint">Klicka för att välja, dra för att flytta. Dubbelklicka för att byta namn. Dra i guldhörnen för att ändra storlek. Ctrl/Cmd+C / V för att kopiera.</div>
-        <div id="objRows"></div>
+        <label>Sortera efter</label>
+        <select id="sortSelect">
+          <option value="name">Namn (A–Ö)</option>
+          <option value="w_desc">Bredd, störst → minst</option>
+          <option value="w_asc">Bredd, minst → störst</option>
+          <option value="h_desc">Längd/höjd, störst → minst</option>
+          <option value="h_asc">Längd/höjd, minst → störst</option>
+          <option value="area_desc">Yta, störst → minst</option>
+        </select>
+        <div id="objRows" style="margin-top:8px;"></div>
       </div>
     </div>
 
@@ -202,6 +214,9 @@
       <input id="selRot" type="number" step="1">
       <label>Färg</label>
       <input id="selColor" type="color">
+      <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:12.5px;color:var(--ink-2);margin-top:10px;">
+        <input id="selIsBoard" type="checkbox" style="width:auto;"> Grundbräda (bakgrund)
+      </label>
       <div class="btnrow">
         <button class="secondary" id="btnDup">Duplicera</button>
         <button class="danger" id="btnDel">Ta bort</button>
@@ -265,6 +280,15 @@
       }));
     }catch(e){}
   }
+  // older saved projects have no isBoard flag -- infer it from the name so
+  // existing "grundbräda"-style boards immediately stop false-flagging as collisions
+  function migrateObjects(objs){
+    return (objs||[]).map(o=>({
+      isBoard: /^grundbr[aä]d/i.test(o.name||""),
+      ...o
+    }));
+  }
+
   function autoload(){
     try{
       const raw = localStorage.getItem(LS_KEY);
@@ -273,7 +297,7 @@
       projNameEl.value = data.projectName || "";
       kerf = data.kerf || 3.0;
       kerfInput.value = kerf.toFixed(1);
-      objects = data.objects || [];
+      objects = migrateObjects(data.objects);
       nextId = 1 + objects.reduce((m,o)=>Math.max(m,o.id||0), 0);
     }catch(e){}
   }
@@ -292,12 +316,14 @@
   const newW = document.getElementById("newW");
   const newH = document.getElementById("newH");
   const newColor = document.getElementById("newColor");
+  const newIsBoard = document.getElementById("newIsBoard");
 
   const selName = document.getElementById("selName");
   const selW = document.getElementById("selW");
   const selH = document.getElementById("selH");
   const selRot = document.getElementById("selRot");
   const selColor = document.getElementById("selColor");
+  const selIsBoard = document.getElementById("selIsBoard");
 
   // ---------- canvas sizing ----------
   function resizeCanvas(){
@@ -347,8 +373,12 @@
   }
 
   function hitTest(wx, wy){
+    // prefer a non-board piece so boards under a stack of pieces don't steal clicks
     for(let i=objects.length-1; i>=0; i--){
-      if(pointInObj(objects[i], wx, wy)) return objects[i];
+      if(!objects[i].isBoard && pointInObj(objects[i], wx, wy)) return objects[i];
+    }
+    for(let i=objects.length-1; i>=0; i--){
+      if(objects[i].isBoard && pointInObj(objects[i], wx, wy)) return objects[i];
     }
     return null;
   }
@@ -411,9 +441,13 @@
     const overlapping = new Set();
     for(let i=0;i<objects.length;i++){
       for(let j=i+1;j<objects.length;j++){
-        if(rectsOverlap(objects[i], objects[j])){
-          overlapping.add(objects[i].id);
-          overlapping.add(objects[j].id);
+        const a = objects[i], b = objects[j];
+        // a piece sitting on top of a base board is expected, not a collision --
+        // only flag piece-vs-piece (or board-vs-board) overlaps
+        if(a.isBoard !== b.isBoard) continue;
+        if(rectsOverlap(a, b)){
+          overlapping.add(a.id);
+          overlapping.add(b.id);
         }
       }
     }
@@ -467,6 +501,7 @@
       ctx.lineWidth = (isOverlap ? 3 : (o.id===selectedId ? 2.5 : 2)) * devicePixelRatio;
       ctx.strokeStyle = isOverlap ? "#c0392b" : ((o.id===selectedId) ? "#c98a2e" : "#1c1b17");
       if(isOverlap) ctx.setLineDash([6*devicePixelRatio, 4*devicePixelRatio]);
+      else if(o.isBoard) ctx.setLineDash([9*devicePixelRatio, 6*devicePixelRatio]);
       ctx.strokeRect(-pw/2, -ph/2, pw, ph);
       ctx.setLineDash([]);
 
@@ -507,20 +542,36 @@
   }
 
   // ---------- object list panel ----------
+  function sortObjectsForList(list){
+    const mode = document.getElementById("sortSelect").value;
+    const arr = [...list];
+    switch(mode){
+      case "w_desc": arr.sort((a,b)=> b.w - a.w); break;
+      case "w_asc":  arr.sort((a,b)=> a.w - b.w); break;
+      case "h_desc": arr.sort((a,b)=> b.h - a.h); break;
+      case "h_asc":  arr.sort((a,b)=> a.h - b.h); break;
+      case "area_desc": arr.sort((a,b)=> (b.w*b.h) - (a.w*a.h)); break;
+      default: arr.sort((a,b)=> (a.name||"").localeCompare(b.name||"", "sv"));
+    }
+    return arr;
+  }
+
   function renderObjList(){
     objRowsEl.innerHTML = "";
     const overlapping = computeOverlaps();
-    for(const o of objects){
+    for(const o of sortObjectsForList(objects)){
       const row = document.createElement("div");
       row.className = "objRow" + (o.id===selectedId ? " selected" : "");
       const warn = overlapping.has(o.id) ? `<span title="Överlappar en annan bräda" style="color:#c0392b;font-weight:700;">⚠</span>` : "";
+      const boardTag = o.isBoard ? `<span title="Grundbräda" style="opacity:.55;font-size:11px;">▦</span>` : "";
       row.innerHTML = `<span class="swatch" style="background:${o.color}"></span>
-        <span class="nm">${escapeHtml(o.name||"(namnlös)")}</span>
+        ${boardTag}<span class="nm">${escapeHtml(o.name||"(namnlös)")}</span>
         <span class="dims">${o.w.toFixed(1)}×${o.h.toFixed(1)}</span> ${warn}`;
       row.addEventListener("click", ()=>{ selectedId = o.id; syncSelPanel(); renderObjList(); draw(); });
       objRowsEl.appendChild(row);
     }
   }
+  document.getElementById("sortSelect").addEventListener("change", renderObjList);
   function escapeHtml(s){
     return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
@@ -534,10 +585,11 @@
     selH.value = o.h.toFixed(1);
     selRot.value = o.rot;
     selColor.value = o.color;
+    selIsBoard.checked = !!o.isBoard;
   }
 
   // ---------- add / edit / delete ----------
-  function addObject(name, w, h, color, x, y){
+  function addObject(name, w, h, color, x, y, isBoard){
     const o = {
       id: uid(),
       name: name || `Bräda ${objects.length+1}`,
@@ -545,7 +597,8 @@
       x: (x!==undefined) ? x : 100 + (objects.length%6)*40,
       y: (y!==undefined) ? y : 100 + Math.floor(objects.length/6)*40,
       rot: 0,
-      color: color || palette()[paletteIdx++ % palette().length]
+      color: color || palette()[paletteIdx++ % palette().length],
+      isBoard: !!isBoard
     };
     objects.push(o);
     selectedId = o.id;
@@ -556,13 +609,13 @@
   document.getElementById("btnAdd").addEventListener("click", ()=>{
     const w = parseFloat(newW.value), h = parseFloat(newH.value);
     if(!(w>0) || !(h>0)){ alert("Ange giltig bredd och höjd i mm."); return; }
-    addObject(newName.value.trim(), w, h, newColor.value);
+    addObject(newName.value.trim(), w, h, newColor.value, undefined, undefined, newIsBoard.checked);
     newName.value = "";
   });
 
   document.getElementById("btnDup").addEventListener("click", ()=>{
     const o = getSel(); if(!o) return;
-    addObject(o.name + " (kopia)", o.w, o.h, o.color, o.x+30, o.y+30);
+    addObject(o.name + " (kopia)", o.w, o.h, o.color, o.x+30, o.y+30, o.isBoard);
   });
   document.getElementById("btnDel").addEventListener("click", ()=>{
     if(!selectedId) return;
@@ -583,6 +636,11 @@
   selColor.addEventListener("input", ()=>{
     const o = getSel(); if(!o) return;
     o.color = selColor.value;
+    renderObjList(); draw(); autosave();
+  });
+  selIsBoard.addEventListener("change", ()=>{
+    const o = getSel(); if(!o) return;
+    o.isBoard = selIsBoard.checked;
     renderObjList(); draw(); autosave();
   });
 
@@ -793,7 +851,7 @@
     projNameEl.value = data.projectName || "";
     kerf = data.kerf || 3.0;
     kerfInput.value = kerf.toFixed(1);
-    objects = data.objects || [];
+    objects = migrateObjects(data.objects);
     nextId = 1 + objects.reduce((m,o)=>Math.max(m,o.id||0), 0);
     selectedId = null;
     renderObjList(); syncSelPanel(); draw(); autosave();
