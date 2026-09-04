@@ -128,6 +128,22 @@
   .driveFileRow:last-child{ border-bottom:none; }
   .driveFileRow:hover{ background:var(--limestone); }
   #driveStatus{ font-size:11.5px; color:var(--teal); margin-top:8px; min-height:14px; }
+
+  #printArea{ display:none; }
+  @media print{
+    body *{ visibility:hidden; }
+    #printArea, #printArea *{ visibility:visible; }
+    #printArea{
+      display:block; position:absolute; top:0; left:0; width:100%;
+      background:#fff; color:#000; padding:16px;
+    }
+    #printArea h1{ font-size:20px; margin:0 0 2px; }
+    #printArea #printMeta{ font-size:12px; color:#444; margin:0 0 14px; }
+    #printArea img{ max-width:100%; border:1px solid #999; margin-bottom:18px; }
+    #printArea table{ width:100%; border-collapse:collapse; font-size:11px; }
+    #printArea th, #printArea td{ border:1px solid #999; padding:4px 6px; text-align:left; }
+    #printArea thead{ background:#eee; }
+  }
 </style>
 </head>
 <body>
@@ -142,6 +158,7 @@
     </div>
     <div class="spacer"></div>
     <div class="actions">
+      <button class="secondary" id="btnPrint">Skriv ut</button>
       <button class="secondary" id="btnExport">Exportera JSON</button>
       <button class="secondary" id="btnImport">Importera JSON</button>
       <button id="btnDrive">Google Drive</button>
@@ -216,6 +233,15 @@
 </div>
 
 <input type="file" id="fileInput" accept="application/json" style="display:none">
+
+<div id="printArea">
+  <h1 id="printTitle">Kaplayout</h1>
+  <p id="printMeta"></p>
+  <table id="printTable">
+    <thead><tr><th>Namn</th><th>Bredd (mm)</th><th>Höjd (mm)</th><th>Rotation</th><th>Position (x, y)</th></tr></thead>
+    <tbody id="printTableBody"></tbody>
+  </table>
+</div>
 
 <script>
 (function(){
@@ -357,6 +383,43 @@
     o.w = newW; o.h = newH; o.x = cx; o.y = cy;
   }
 
+  // ---------- collision detection (SAT for rotated rects) ----------
+  function projectOntoAxis(corners, axis){
+    let min=Infinity, max=-Infinity;
+    for(const [x,y] of corners){
+      const d = x*axis[0] + y*axis[1];
+      if(d<min) min=d; if(d>max) max=d;
+    }
+    return [min,max];
+  }
+  function rectsOverlap(a, b){
+    const cornersA = objCorners(a), cornersB = objCorners(b);
+    const axes = [];
+    for(const o of [a,b]){
+      const rad = o.rot*Math.PI/180;
+      axes.push([Math.cos(rad), Math.sin(rad)]);
+      axes.push([-Math.sin(rad), Math.cos(rad)]);
+    }
+    for(const axis of axes){
+      const [aMin,aMax] = projectOntoAxis(cornersA, axis);
+      const [bMin,bMax] = projectOntoAxis(cornersB, axis);
+      if(aMax <= bMin + 1e-6 || bMax <= aMin + 1e-6) return false;
+    }
+    return true;
+  }
+  function computeOverlaps(){
+    const overlapping = new Set();
+    for(let i=0;i<objects.length;i++){
+      for(let j=i+1;j<objects.length;j++){
+        if(rectsOverlap(objects[i], objects[j])){
+          overlapping.add(objects[i].id);
+          overlapping.add(objects[j].id);
+        }
+      }
+    }
+    return overlapping;
+  }
+
   // ---------- drawing ----------
   function draw(){
     const w = cv.width, h = cv.height;
@@ -387,20 +450,25 @@
     ctx.beginPath(); ctx.moveTo(ox-14,oy); ctx.lineTo(ox+14,oy); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(ox,oy-14); ctx.lineTo(ox,oy+14); ctx.stroke();
 
+    const overlapping = computeOverlaps();
+
     for(const o of objects){
       const rad = o.rot * Math.PI/180;
       const [sx,sy] = worldToScreen(o.x, o.y);
+      const isOverlap = overlapping.has(o.id);
       ctx.save();
       ctx.translate(sx, sy);
       ctx.rotate(rad);
       const pw = o.w * view.zoom * devicePixelRatio;
       const ph = o.h * view.zoom * devicePixelRatio;
 
-      ctx.fillStyle = o.color + "3d";
+      ctx.fillStyle = isOverlap ? "#e0433955" : (o.color + "3d");
       ctx.fillRect(-pw/2, -ph/2, pw, ph);
-      ctx.lineWidth = (o.id===selectedId ? 2.5 : 2) * devicePixelRatio;
-      ctx.strokeStyle = (o.id===selectedId) ? "#c98a2e" : "#1c1b17";
+      ctx.lineWidth = (isOverlap ? 3 : (o.id===selectedId ? 2.5 : 2)) * devicePixelRatio;
+      ctx.strokeStyle = isOverlap ? "#c0392b" : ((o.id===selectedId) ? "#c98a2e" : "#1c1b17");
+      if(isOverlap) ctx.setLineDash([6*devicePixelRatio, 4*devicePixelRatio]);
       ctx.strokeRect(-pw/2, -ph/2, pw, ph);
+      ctx.setLineDash([]);
 
       if(o.id===selectedId){
         const hs = HANDLE_PX * devicePixelRatio;
@@ -431,18 +499,24 @@
     }
     ctx.restore();
 
-    zoomHud.textContent = `Zoom ${(view.zoom*100).toFixed(0)}% · Sågblad ${kerf.toFixed(1)}mm · Objekt ${objects.length}`;
+    const overlapCount = overlapping.size;
+    zoomHud.textContent = `Zoom ${(view.zoom*100).toFixed(0)}% · Sågblad ${kerf.toFixed(1)}mm · Objekt ${objects.length}` +
+      (overlapCount ? ` · ⚠ ${overlapCount} överlappande` : " · Inga överlapp");
+    zoomHud.style.color = overlapCount ? "#ffb4ab" : "#fff";
+    return overlapping;
   }
 
   // ---------- object list panel ----------
   function renderObjList(){
     objRowsEl.innerHTML = "";
+    const overlapping = computeOverlaps();
     for(const o of objects){
       const row = document.createElement("div");
       row.className = "objRow" + (o.id===selectedId ? " selected" : "");
+      const warn = overlapping.has(o.id) ? `<span title="Överlappar en annan bräda" style="color:#c0392b;font-weight:700;">⚠</span>` : "";
       row.innerHTML = `<span class="swatch" style="background:${o.color}"></span>
         <span class="nm">${escapeHtml(o.name||"(namnlös)")}</span>
-        <span class="dims">${o.w.toFixed(1)}×${o.h.toFixed(1)}</span>`;
+        <span class="dims">${o.w.toFixed(1)}×${o.h.toFixed(1)}</span> ${warn}`;
       row.addEventListener("click", ()=>{ selectedId = o.id; syncSelPanel(); renderObjList(); draw(); });
       objRowsEl.appendChild(row);
     }
@@ -661,6 +735,34 @@
     } else if(e.key==="Delete" || e.key==="Backspace"){
       if(selectedId){ document.getElementById("btnDel").click(); }
     }
+  });
+
+  // ---------- print ----------
+  document.getElementById("btnPrint").addEventListener("click", ()=>{
+    const overlapping = computeOverlaps();
+    document.getElementById("printTitle").textContent = projNameEl.value.trim() || "Kaplayout";
+    const d = new Date();
+    document.getElementById("printMeta").textContent =
+      `Sågblad ${kerf.toFixed(1)}mm · ${objects.length} objekt · Utskrivet ${d.toLocaleDateString("sv-SE")}` +
+      (overlapping.size ? ` · ⚠ ${overlapping.size} objekt överlappar varandra — kontrollera arbetsytan!` : "");
+
+    // snapshot the canvas as-is
+    const existingImg = document.querySelector("#printArea img");
+    if(existingImg) existingImg.remove();
+    const img = document.createElement("img");
+    img.src = cv.toDataURL("image/png");
+    document.getElementById("printTable").before(img);
+
+    const body = document.getElementById("printTableBody");
+    body.innerHTML = "";
+    const sorted = [...objects].sort((a,b)=> (a.name||"").localeCompare(b.name||"", "sv"));
+    for(const o of sorted){
+      const tr = document.createElement("tr");
+      const warn = overlapping.has(o.id) ? " ⚠" : "";
+      tr.innerHTML = `<td>${escapeHtml(o.name||"(namnlös)")}${warn}</td><td>${o.w.toFixed(1)}</td><td>${o.h.toFixed(1)}</td><td>${o.rot}°</td><td>${o.x.toFixed(0)}, ${o.y.toFixed(0)}</td>`;
+      body.appendChild(tr);
+    }
+    window.print();
   });
 
   // ---------- export / import JSON ----------
