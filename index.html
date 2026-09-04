@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kaplayout — Duco</title>
+<title>Kaptavlan — Duco</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%AA%9A%3C/text%3E%3C/svg%3E">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
@@ -167,7 +168,7 @@
 <body>
 <div id="app">
   <header>
-    <h1>Kaplayout</h1>
+    <h1>🪚 Kaptavlan</h1>
     <div class="proj"><input id="projName" type="text" placeholder="Projektnamn (t.ex. Jessica-luckor)"></div>
     <div class="kerf">
       <span>Sågblad</span>
@@ -268,7 +269,7 @@
 <input type="file" id="fileInput" accept="application/json" style="display:none">
 
 <div id="printArea">
-  <h1 id="printTitle">Kaplayout</h1>
+  <h1 id="printTitle">Kaptavlan</h1>
   <p id="printMeta"></p>
   <table id="printTable">
     <thead><tr><th>Namn</th><th>Bredd (mm)</th><th>Höjd (mm)</th><th>Rotation</th><th>Position (x, y)</th></tr></thead>
@@ -873,7 +874,7 @@
   // ---------- print ----------
   document.getElementById("btnPrint").addEventListener("click", ()=>{
     const overlapping = computeOverlaps();
-    document.getElementById("printTitle").textContent = projNameEl.value.trim() || "Kaplayout";
+    document.getElementById("printTitle").textContent = projNameEl.value.trim() || "Kaptavlan";
     const d = new Date();
     document.getElementById("printMeta").textContent =
       `Sågblad ${kerf.toFixed(1)}mm · ${objects.length} objekt · Utskrivet ${d.toLocaleDateString("sv-SE")}` +
