@@ -1,0 +1,781 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kaplayout — Duco</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<style>
+  :root{
+    --limestone:#efe8da;
+    --ink:#1c1b17;
+    --ink-2:#2b2a24;
+    --paper:#f4efe2;
+    --gold:#d19a3d;
+    --gold-deep:#96631a;
+    --teal:#34515e;
+    --teal-deep:#1c2f36;
+    --line: rgba(28,27,23,.14);
+    --panel-w: 260px;
+  }
+  *{box-sizing:border-box;}
+  html,body{
+    margin:0; padding:0; height:100%;
+    background:var(--limestone);
+    color:var(--ink);
+    font-family: ui-sans-serif, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    overflow:hidden;
+  }
+  h1,h2,h3{font-family: ui-serif, "Iowan Old Style", "Palatino Linotype", Georgia, serif; font-weight:600;}
+  input, select, button{
+    font-family:inherit; font-size:13px;
+  }
+  input[type="number"], input[type="text"]{
+    width:100%; padding:6px 8px; border:1px solid var(--line);
+    border-radius:5px; background:var(--paper); color:var(--ink);
+  }
+  input[type="color"]{
+    width:36px; height:28px; padding:0; border:1px solid var(--line);
+    border-radius:5px; background:none; cursor:pointer;
+  }
+  label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--teal); margin:8px 0 3px; }
+  button{
+    cursor:pointer; border:1px solid var(--teal-deep); background:var(--teal);
+    color:#fff; padding:7px 10px; border-radius:6px; font-weight:600;
+  }
+  button:hover{ background:var(--teal-deep); }
+  button.secondary{ background:var(--paper); color:var(--ink); border-color:var(--line); font-weight:500; }
+  button.secondary:hover{ background:#fff; }
+  button.danger{ background:#fff; color:#a33; border-color:#a33; }
+  button.danger:hover{ background:#a33; color:#fff; }
+  button:disabled{ opacity:.45; cursor:not-allowed; }
+
+  #app{ display:flex; flex-direction:column; height:100%; }
+
+  header{
+    display:flex; align-items:center; gap:16px;
+    padding:10px 16px; background:var(--teal-deep); color:#fff;
+    border-bottom:3px solid var(--gold);
+    flex:none;
+  }
+  header h1{ font-size:18px; margin:0; color:#fff; white-space:nowrap; }
+  header .proj{ flex:1; max-width:260px; }
+  header .proj input{ background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.25); color:#fff; }
+  header .proj input::placeholder{ color:rgba(255,255,255,.6); }
+  header .kerf{ display:flex; align-items:center; gap:6px; white-space:nowrap; font-size:12.5px; }
+  header .kerf input{ width:64px; background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.25); color:#fff; }
+  header .spacer{ flex:1; }
+  header .actions{ display:flex; gap:8px; align-items:center; }
+  header button{ padding:6px 10px; font-size:12.5px; }
+
+  #main{ flex:1; display:flex; min-height:0; }
+
+  #left{
+    width:var(--panel-w); flex:none; background:var(--paper);
+    border-right:1px solid var(--line); overflow-y:auto; padding:14px;
+  }
+  #left h2{ font-size:13px; margin:0 0 6px; }
+  #left .hint{ font-size:11.5px; color:var(--teal); margin-bottom:10px; line-height:1.4; }
+
+  #objList{ margin-top:14px; border-top:1px solid var(--line); padding-top:10px; }
+  .objRow{
+    display:flex; align-items:center; gap:8px; padding:6px 6px;
+    border-radius:6px; cursor:pointer; font-size:12.5px;
+  }
+  .objRow:hover{ background:var(--limestone); }
+  .objRow.selected{ background:var(--gold); color:#fff; }
+  .objRow .swatch{ width:14px; height:14px; border-radius:3px; flex:none; border:1px solid rgba(0,0,0,.2); }
+  .objRow .nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .objRow .dims{ font-variant-numeric:tabular-nums; opacity:.8; font-size:11px; }
+
+  #canvasWrap{ flex:1; position:relative; background:#dfd6bf; min-width:0; }
+  canvas{ display:block; width:100%; height:100%; cursor:grab; }
+  canvas.dragging{ cursor:grabbing; }
+
+  #right{
+    width:var(--panel-w); flex:none; background:var(--paper);
+    border-left:1px solid var(--line); overflow-y:auto; padding:14px;
+    display:none;
+  }
+  #right.show{ display:block; }
+  #right h2{ font-size:13px; margin:0 0 10px; }
+  .row2{ display:flex; gap:8px; }
+  .row2 > div{ flex:1; }
+  .btnrow{ display:flex; gap:8px; margin-top:14px; }
+  .btnrow button{ flex:1; }
+
+  #zoomHud{
+    position:absolute; bottom:10px; left:10px; background:rgba(28,27,23,.75);
+    color:#fff; padding:4px 10px; border-radius:6px; font-size:11.5px;
+    font-variant-numeric:tabular-nums; pointer-events:none;
+  }
+
+  #driveModal{
+    position:fixed; inset:0; background:rgba(28,27,23,.5);
+    display:none; align-items:center; justify-content:center; z-index:20;
+  }
+  #driveModal.show{ display:flex; }
+  #driveModal .box{
+    background:var(--paper); border-radius:10px; padding:20px; width:380px;
+    max-width:90vw; box-shadow:0 12px 40px rgba(0,0,0,.35);
+  }
+  #driveModal h3{ margin:0 0 4px; font-size:16px; }
+  #driveModal p{ font-size:12px; color:var(--teal); line-height:1.5; margin:0 0 12px; }
+  #driveFileList{ max-height:220px; overflow-y:auto; margin:10px 0; border:1px solid var(--line); border-radius:6px; }
+  .driveFileRow{ padding:8px 10px; font-size:12.5px; cursor:pointer; border-bottom:1px solid var(--line); }
+  .driveFileRow:last-child{ border-bottom:none; }
+  .driveFileRow:hover{ background:var(--limestone); }
+  #driveStatus{ font-size:11.5px; color:var(--teal); margin-top:8px; min-height:14px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Kaplayout</h1>
+    <div class="proj"><input id="projName" type="text" placeholder="Projektnamn (t.ex. Jessica-luckor)"></div>
+    <div class="kerf">
+      <span>Sågblad</span>
+      <input id="kerfInput" type="number" step="0.1" min="0" value="3.0">
+      <span>mm</span>
+    </div>
+    <div class="spacer"></div>
+    <div class="actions">
+      <button class="secondary" id="btnExport">Exportera JSON</button>
+      <button class="secondary" id="btnImport">Importera JSON</button>
+      <button id="btnDrive">Google Drive</button>
+    </div>
+  </header>
+
+  <div id="main">
+    <div id="left">
+      <h2>Ny bräda / skiva</h2>
+      <label>Namn</label>
+      <input id="newName" type="text" placeholder="t.ex. Bräda 1">
+      <div class="row2">
+        <div><label>Bredd (mm)</label><input id="newW" type="number" step="0.1" min="0.1" value="220.0"></div>
+        <div><label>Höjd (mm)</label><input id="newH" type="number" step="0.1" min="0.1" value="1000.0"></div>
+      </div>
+      <label>Färg</label>
+      <input id="newColor" type="color" value="#c9b88a">
+      <div class="btnrow"><button id="btnAdd" style="flex:1">Lägg till</button></div>
+
+      <div id="objList">
+        <h2>Objekt</h2>
+        <div class="hint">Klicka för att välja. Dra i arbetsytan för att flytta. Ctrl/Cmd+C / V för att kopiera.</div>
+        <div id="objRows"></div>
+      </div>
+    </div>
+
+    <div id="canvasWrap">
+      <canvas id="cv"></canvas>
+      <div id="zoomHud"></div>
+    </div>
+
+    <div id="right">
+      <h2>Vald bräda</h2>
+      <label>Namn</label>
+      <input id="selName" type="text">
+      <div class="row2">
+        <div><label>Bredd (mm)</label><input id="selW" type="number" step="0.1" min="0.1"></div>
+        <div><label>Höjd (mm)</label><input id="selH" type="number" step="0.1" min="0.1"></div>
+      </div>
+      <label>Rotation (grader)</label>
+      <input id="selRot" type="number" step="1">
+      <label>Färg</label>
+      <input id="selColor" type="color">
+      <div class="btnrow">
+        <button class="secondary" id="btnDup">Duplicera</button>
+        <button class="danger" id="btnDel">Ta bort</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="driveModal">
+  <div class="box">
+    <h3>Google Drive</h3>
+    <p>Kräver ett eget Google OAuth Client-ID (skapas en gång i Google Cloud Console, gratis). Klistra in det här — det sparas bara i din webbläsare.</p>
+    <label>Google OAuth Client ID</label>
+    <input id="driveClientId" type="text" placeholder="xxxxxxxx.apps.googleusercontent.com">
+    <label>Mapp-ID i Drive (valfritt, annars skapas "Kaplayout-projekt")</label>
+    <input id="driveFolderId" type="text" placeholder="lämna tomt för auto">
+    <div class="btnrow">
+      <button class="secondary" id="btnDriveSaveCfg">Spara inställning</button>
+      <button id="btnDriveConnect">Anslut</button>
+    </div>
+    <div id="driveFileList" style="display:none;"></div>
+    <div class="btnrow" id="driveActionRow" style="display:none;">
+      <button class="secondary" id="btnDriveSaveProj">Spara projekt till Drive</button>
+      <button class="secondary" id="btnDriveRefresh">Uppdatera lista</button>
+    </div>
+    <div id="driveStatus"></div>
+    <div class="btnrow"><button class="secondary" id="btnDriveClose" style="flex:1">Stäng</button></div>
+  </div>
+</div>
+
+<input type="file" id="fileInput" accept="application/json" style="display:none">
+
+<script>
+(function(){
+  "use strict";
+
+  // ---------- state ----------
+  let objects = [];      // {id,name,w,h,x,y,rot,color}
+  let selectedId = null;
+  let kerf = 3.0;
+  let clipboard = [];
+  let nextId = 1;
+
+  const view = { panX: 40, panY: 40, zoom: 0.35 }; // px per mm
+
+  // ---------- persistence (local) ----------
+  const LS_KEY = "kaplayout_project_v1";
+  function autosave(){
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        projectName: projNameEl.value, kerf, objects
+      }));
+    }catch(e){}
+  }
+  function autoload(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(!raw) return;
+      const data = JSON.parse(raw);
+      projNameEl.value = data.projectName || "";
+      kerf = data.kerf || 3.0;
+      kerfInput.value = kerf.toFixed(1);
+      objects = data.objects || [];
+      nextId = 1 + objects.reduce((m,o)=>Math.max(m,o.id||0), 0);
+    }catch(e){}
+  }
+
+  // ---------- DOM refs ----------
+  const cv = document.getElementById("cv");
+  const ctx = cv.getContext("2d");
+  const canvasWrap = document.getElementById("canvasWrap");
+  const zoomHud = document.getElementById("zoomHud");
+  const objRowsEl = document.getElementById("objRows");
+  const rightPanel = document.getElementById("right");
+  const projNameEl = document.getElementById("projName");
+  const kerfInput = document.getElementById("kerfInput");
+
+  const newName = document.getElementById("newName");
+  const newW = document.getElementById("newW");
+  const newH = document.getElementById("newH");
+  const newColor = document.getElementById("newColor");
+
+  const selName = document.getElementById("selName");
+  const selW = document.getElementById("selW");
+  const selH = document.getElementById("selH");
+  const selRot = document.getElementById("selRot");
+  const selColor = document.getElementById("selColor");
+
+  // ---------- canvas sizing ----------
+  function resizeCanvas(){
+    const r = canvasWrap.getBoundingClientRect();
+    cv.width = r.width * devicePixelRatio;
+    cv.height = r.height * devicePixelRatio;
+    cv.style.width = r.width+"px";
+    cv.style.height = r.height+"px";
+    draw();
+  }
+  window.addEventListener("resize", resizeCanvas);
+
+  // ---------- helpers ----------
+  function uid(){ return nextId++; }
+  function getSel(){ return objects.find(o=>o.id===selectedId) || null; }
+  function palette(){
+    return ["#c9b88a","#8aa9a5","#d19a3d","#34515e","#a35b4a","#6f8f4a","#b56e93","#5c6bc0"];
+  }
+  let paletteIdx = 0;
+
+  function worldToScreen(x,y){
+    return [ (x*view.zoom + view.panX) * devicePixelRatio, (y*view.zoom + view.panY) * devicePixelRatio ];
+  }
+  function screenToWorld(sx,sy){
+    return [ (sx/devicePixelRatio - view.panX)/view.zoom, (sy/devicePixelRatio - view.panY)/view.zoom ];
+  }
+
+  function objCorners(o){
+    // returns 4 corners in world space, accounting rotation around center (o.x,o.y)
+    const rad = o.rot * Math.PI/180;
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    const hw = o.w/2, hh = o.h/2;
+    const pts = [[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]];
+    return pts.map(([dx,dy])=>[
+      o.x + dx*cos - dy*sin,
+      o.y + dx*sin + dy*cos
+    ]);
+  }
+
+  function pointInObj(o, wx, wy){
+    const rad = -o.rot * Math.PI/180;
+    const dx = wx - o.x, dy = wy - o.y;
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    const lx = dx*cos - dy*sin;
+    const ly = dx*sin + dy*cos;
+    return Math.abs(lx) <= o.w/2 && Math.abs(ly) <= o.h/2;
+  }
+
+  function hitTest(wx, wy){
+    for(let i=objects.length-1; i>=0; i--){
+      if(pointInObj(objects[i], wx, wy)) return objects[i];
+    }
+    return null;
+  }
+
+  // ---------- drawing ----------
+  function draw(){
+    const w = cv.width, h = cv.height;
+    ctx.save();
+    ctx.clearRect(0,0,w,h);
+    ctx.fillStyle = "#dfd6bf";
+    ctx.fillRect(0,0,w,h);
+
+    // grid every 100mm
+    ctx.strokeStyle = "rgba(28,27,23,.08)";
+    ctx.lineWidth = 1;
+    const gridMm = 100;
+    const stepPx = gridMm * view.zoom * devicePixelRatio;
+    if(stepPx > 6){
+      const originX = view.panX * devicePixelRatio;
+      const originY = view.panY * devicePixelRatio;
+      for(let x = originX % stepPx; x < w; x += stepPx){
+        ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke();
+      }
+      for(let y = originY % stepPx; y < h; y += stepPx){
+        ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke();
+      }
+    }
+    // origin marker
+    const [ox,oy] = worldToScreen(0,0);
+    ctx.strokeStyle = "rgba(150,99,26,.5)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(ox-14,oy); ctx.lineTo(ox+14,oy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox,oy-14); ctx.lineTo(ox,oy+14); ctx.stroke();
+
+    for(const o of objects){
+      const rad = o.rot * Math.PI/180;
+      const [sx,sy] = worldToScreen(o.x, o.y);
+      ctx.save();
+      ctx.translate(sx, sy);
+      ctx.rotate(rad);
+      const pw = o.w * view.zoom * devicePixelRatio;
+      const ph = o.h * view.zoom * devicePixelRatio;
+
+      ctx.fillStyle = o.color + "cc";
+      ctx.fillRect(-pw/2, -ph/2, pw, ph);
+      ctx.lineWidth = (o.id===selectedId ? 3 : 1.25) * devicePixelRatio;
+      ctx.strokeStyle = (o.id===selectedId) ? "#d19a3d" : "rgba(28,27,23,.5)";
+      ctx.strokeRect(-pw/2, -ph/2, pw, ph);
+
+      // label
+      ctx.fillStyle = "#1c1b17";
+      const fontPx = Math.max(9, Math.min(15, pw*0.09)) * devicePixelRatio;
+      ctx.font = `600 ${fontPx}px ui-sans-serif, Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const label = o.name || "(namnlös)";
+      const dims = `${o.w.toFixed(1)} × ${o.h.toFixed(1)} mm`;
+      if(pw > 40*devicePixelRatio && ph > 24*devicePixelRatio){
+        ctx.fillText(label, 0, -fontPx*0.65);
+        ctx.font = `400 ${fontPx*0.8}px ui-sans-serif, Arial`;
+        ctx.fillText(dims, 0, fontPx*0.65);
+      }
+      ctx.restore();
+    }
+    ctx.restore();
+
+    zoomHud.textContent = `Zoom ${(view.zoom*100).toFixed(0)}% · Sågblad ${kerf.toFixed(1)}mm · Objekt ${objects.length}`;
+  }
+
+  // ---------- object list panel ----------
+  function renderObjList(){
+    objRowsEl.innerHTML = "";
+    for(const o of objects){
+      const row = document.createElement("div");
+      row.className = "objRow" + (o.id===selectedId ? " selected" : "");
+      row.innerHTML = `<span class="swatch" style="background:${o.color}"></span>
+        <span class="nm">${escapeHtml(o.name||"(namnlös)")}</span>
+        <span class="dims">${o.w.toFixed(1)}×${o.h.toFixed(1)}</span>`;
+      row.addEventListener("click", ()=>{ selectedId = o.id; syncSelPanel(); renderObjList(); draw(); });
+      objRowsEl.appendChild(row);
+    }
+  }
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  function syncSelPanel(){
+    const o = getSel();
+    if(!o){ rightPanel.classList.remove("show"); return; }
+    rightPanel.classList.add("show");
+    selName.value = o.name;
+    selW.value = o.w.toFixed(1);
+    selH.value = o.h.toFixed(1);
+    selRot.value = o.rot;
+    selColor.value = o.color;
+  }
+
+  // ---------- add / edit / delete ----------
+  function addObject(name, w, h, color, x, y){
+    const o = {
+      id: uid(),
+      name: name || `Bräda ${objects.length+1}`,
+      w: Math.max(0.1, w), h: Math.max(0.1, h),
+      x: (x!==undefined) ? x : 100 + (objects.length%6)*40,
+      y: (y!==undefined) ? y : 100 + Math.floor(objects.length/6)*40,
+      rot: 0,
+      color: color || palette()[paletteIdx++ % palette().length]
+    };
+    objects.push(o);
+    selectedId = o.id;
+    renderObjList(); syncSelPanel(); draw(); autosave();
+    return o;
+  }
+
+  document.getElementById("btnAdd").addEventListener("click", ()=>{
+    const w = parseFloat(newW.value), h = parseFloat(newH.value);
+    if(!(w>0) || !(h>0)){ alert("Ange giltig bredd och höjd i mm."); return; }
+    addObject(newName.value.trim(), w, h, newColor.value);
+    newName.value = "";
+  });
+
+  document.getElementById("btnDup").addEventListener("click", ()=>{
+    const o = getSel(); if(!o) return;
+    addObject(o.name + " (kopia)", o.w, o.h, o.color, o.x+30, o.y+30);
+  });
+  document.getElementById("btnDel").addEventListener("click", ()=>{
+    if(!selectedId) return;
+    objects = objects.filter(o=>o.id!==selectedId);
+    selectedId = null;
+    renderObjList(); syncSelPanel(); draw(); autosave();
+  });
+
+  [ [selName,"name",false], [selW,"w",true], [selH,"h",true], [selRot,"rot",true] ].forEach(([el,key,isNum])=>{
+    el.addEventListener("input", ()=>{
+      const o = getSel(); if(!o) return;
+      let v = el.value;
+      if(isNum){ v = parseFloat(v); if(isNaN(v)) return; }
+      o[key] = v;
+      renderObjList(); draw(); autosave();
+    });
+  });
+  selColor.addEventListener("input", ()=>{
+    const o = getSel(); if(!o) return;
+    o.color = selColor.value;
+    renderObjList(); draw(); autosave();
+  });
+
+  kerfInput.addEventListener("input", ()=>{
+    const v = parseFloat(kerfInput.value);
+    if(!isNaN(v) && v>=0){ kerf = v; draw(); autosave(); }
+  });
+  projNameEl.addEventListener("input", autosave);
+
+  // ---------- canvas interaction: pan / select / drag / zoom ----------
+  let dragMode = null; // 'move' | 'pan'
+  let dragObj = null;
+  let dragStart = {x:0,y:0};
+  let objStart = {x:0,y:0};
+  let panStart = {x:0,y:0};
+
+  function evtWorld(e){
+    const r = cv.getBoundingClientRect();
+    const sx = (e.clientX - r.left) * devicePixelRatio;
+    const sy = (e.clientY - r.top) * devicePixelRatio;
+    return screenToWorld(sx,sy);
+  }
+
+  cv.addEventListener("mousedown", (e)=>{
+    const [wx,wy] = evtWorld(e);
+    const hit = hitTest(wx,wy);
+    if(hit){
+      selectedId = hit.id;
+      dragMode = "move"; dragObj = hit;
+      dragStart = {x:wx,y:wy};
+      objStart = {x:hit.x, y:hit.y};
+      cv.classList.add("dragging");
+    } else {
+      selectedId = null;
+      dragMode = "pan";
+      panStart = {x:e.clientX, y:e.clientY};
+      objStart = {x:view.panX, y:view.panY};
+      cv.classList.add("dragging");
+    }
+    syncSelPanel(); renderObjList(); draw();
+  });
+
+  window.addEventListener("mousemove", (e)=>{
+    if(dragMode === "move" && dragObj){
+      const [wx,wy] = evtWorld(e);
+      let nx = objStart.x + (wx - dragStart.x);
+      let ny = objStart.y + (wy - dragStart.y);
+      const snap = snapAgainstOthers(dragObj, nx, ny);
+      dragObj.x = snap.x; dragObj.y = snap.y;
+      draw();
+    } else if(dragMode === "pan"){
+      view.panX = objStart.x + (e.clientX - panStart.x)/devicePixelRatio;
+      view.panY = objStart.y + (e.clientY - panStart.y)/devicePixelRatio;
+      draw();
+    }
+  });
+  window.addEventListener("mouseup", ()=>{
+    if(dragMode==="move") autosave();
+    dragMode = null; dragObj = null;
+    cv.classList.remove("dragging");
+  });
+
+  // snap dragged object's edges to other objects' edges, gap = kerf (axis-aligned only)
+  function snapAgainstOthers(o, nx, ny){
+    const SNAP_PX = 10;
+    let bestX = nx, bestY = ny;
+    const nearlyAxisAligned = (Math.abs(o.rot % 90) < 0.01);
+    if(nearlyAxisAligned){
+      const hw = o.w/2, hh = o.h/2;
+      for(const other of objects){
+        if(other.id===o.id) continue;
+        if(Math.abs(other.rot % 90) > 0.01) continue;
+        const ohw = other.w/2, ohh = other.h/2;
+        // vertical overlap check for horizontal snap
+        const vOverlap = (ny+hh > other.y-ohh) && (ny-hh < other.y+ohh);
+        if(vOverlap){
+          const targetsX = [ other.x - ohw - kerf - hw, other.x + ohw + kerf + hw, other.x - ohw + hw, other.x + ohw - hw ];
+          for(const tx of targetsX){
+            const [sx1] = worldToScreen(nx,0);
+            const [sx2] = worldToScreen(tx,0);
+            if(Math.abs(sx1-sx2) < SNAP_PX*devicePixelRatio){ bestX = tx; }
+          }
+        }
+        const hOverlap = (nx+hw > other.x-ohw) && (nx-hw < other.x+ohw);
+        if(hOverlap){
+          const targetsY = [ other.y - ohh - kerf - hh, other.y + ohh + kerf + hh, other.y - ohh + hh, other.y + ohh - hh ];
+          for(const ty of targetsY){
+            const [,sy1] = worldToScreen(0,ny);
+            const [,sy2] = worldToScreen(0,ty);
+            if(Math.abs(sy1-sy2) < SNAP_PX*devicePixelRatio){ bestY = ty; }
+          }
+        }
+      }
+    }
+    return {x:bestX, y:bestY};
+  }
+
+  cv.addEventListener("wheel", (e)=>{
+    e.preventDefault();
+    const r = cv.getBoundingClientRect();
+    const mx = (e.clientX - r.left), my = (e.clientY - r.top);
+    const [wx,wy] = screenToWorld(mx*devicePixelRatio, my*devicePixelRatio);
+    const factor = Math.exp(-e.deltaY * 0.0012);
+    view.zoom = Math.min(4, Math.max(0.02, view.zoom * factor));
+    // keep mouse point stable
+    view.panX = mx - wx*view.zoom;
+    view.panY = my - wy*view.zoom;
+    draw();
+  }, {passive:false});
+
+  // ---------- keyboard: copy/paste, delete ----------
+  window.addEventListener("keydown", (e)=>{
+    const tag = (document.activeElement && document.activeElement.tagName) || "";
+    if(tag==="INPUT" || tag==="TEXTAREA") return;
+    if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="c"){
+      const o = getSel(); if(o) clipboard = [JSON.parse(JSON.stringify(o))];
+    } else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="v"){
+      for(const c of clipboard){
+        addObject(c.name+" (kopia)", c.w, c.h, c.color, c.x+30, c.y+30);
+      }
+    } else if(e.key==="Delete" || e.key==="Backspace"){
+      if(selectedId){ document.getElementById("btnDel").click(); }
+    }
+  });
+
+  // ---------- export / import JSON ----------
+  document.getElementById("btnExport").addEventListener("click", ()=>{
+    const data = { projectName: projNameEl.value, kerf, objects };
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = (projNameEl.value.trim() || "kaplayout-projekt") + ".json";
+    a.click();
+    URL.revokeObjectURL(url);
+  });
+  const fileInput = document.getElementById("fileInput");
+  document.getElementById("btnImport").addEventListener("click", ()=> fileInput.click());
+  fileInput.addEventListener("change", ()=>{
+    const f = fileInput.files[0]; if(!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        loadProjectData(JSON.parse(reader.result));
+      }catch(e){ alert("Kunde inte läsa filen: "+e.message); }
+    };
+    reader.readAsText(f);
+    fileInput.value = "";
+  });
+  function loadProjectData(data){
+    projNameEl.value = data.projectName || "";
+    kerf = data.kerf || 3.0;
+    kerfInput.value = kerf.toFixed(1);
+    objects = data.objects || [];
+    nextId = 1 + objects.reduce((m,o)=>Math.max(m,o.id||0), 0);
+    selectedId = null;
+    renderObjList(); syncSelPanel(); draw(); autosave();
+  }
+
+  // ================= Google Drive =================
+  const LS_DRIVE_CFG = "kaplayout_drive_cfg_v1";
+  let driveTokenClient = null;
+  let driveAccessToken = null;
+  let driveFolderId = "";
+  let driveClientIdVal = "";
+
+  function loadDriveCfg(){
+    try{
+      const raw = localStorage.getItem(LS_DRIVE_CFG);
+      if(!raw) return;
+      const c = JSON.parse(raw);
+      driveClientIdVal = c.clientId || "";
+      driveFolderId = c.folderId || "";
+      document.getElementById("driveClientId").value = driveClientIdVal;
+      document.getElementById("driveFolderId").value = driveFolderId;
+    }catch(e){}
+  }
+  function saveDriveCfg(){
+    driveClientIdVal = document.getElementById("driveClientId").value.trim();
+    driveFolderId = document.getElementById("driveFolderId").value.trim();
+    localStorage.setItem(LS_DRIVE_CFG, JSON.stringify({clientId:driveClientIdVal, folderId:driveFolderId}));
+  }
+
+  const driveModal = document.getElementById("driveModal");
+  document.getElementById("btnDrive").addEventListener("click", ()=>{ driveModal.classList.add("show"); });
+  document.getElementById("btnDriveClose").addEventListener("click", ()=>{ driveModal.classList.remove("show"); });
+  document.getElementById("btnDriveSaveCfg").addEventListener("click", ()=>{
+    saveDriveCfg();
+    setDriveStatus("Inställning sparad lokalt.");
+  });
+
+  function setDriveStatus(msg){ document.getElementById("driveStatus").textContent = msg; }
+
+  document.getElementById("btnDriveConnect").addEventListener("click", ()=>{
+    saveDriveCfg();
+    if(!driveClientIdVal){ setDriveStatus("Ange ett Client ID först."); return; }
+    if(typeof google === "undefined" || !google.accounts){
+      setDriveStatus("Google-biblioteket har inte laddats än, försök igen om en sekund.");
+      return;
+    }
+    driveTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: driveClientIdVal,
+      scope: "https://www.googleapis.com/auth/drive.file",
+      callback: async (resp) => {
+        if(resp.error){ setDriveStatus("Fel vid inloggning: "+resp.error); return; }
+        driveAccessToken = resp.access_token;
+        setDriveStatus("Ansluten till Google Drive.");
+        document.getElementById("driveActionRow").style.display = "flex";
+        document.getElementById("driveFileList").style.display = "block";
+        await ensureFolder();
+        await refreshDriveList();
+      }
+    });
+    driveTokenClient.requestAccessToken();
+  });
+
+  async function ensureFolder(){
+    if(driveFolderId) return driveFolderId;
+    // search for existing "Kaplayout-projekt" folder, else create it
+    const q = encodeURIComponent("name='Kaplayout-projekt' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    const res = await gapiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+    const data = await res.json();
+    if(data.files && data.files.length){
+      driveFolderId = data.files[0].id;
+    } else {
+      const createRes = await gapiFetch("https://www.googleapis.com/drive/v3/files", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({ name:"Kaplayout-projekt", mimeType:"application/vnd.google-apps.folder" })
+      });
+      const created = await createRes.json();
+      driveFolderId = created.id;
+    }
+    document.getElementById("driveFolderId").value = driveFolderId;
+    saveDriveCfg();
+    return driveFolderId;
+  }
+
+  function gapiFetch(url, opts){
+    opts = opts || {};
+    opts.headers = Object.assign({ "Authorization": "Bearer " + driveAccessToken }, opts.headers||{});
+    return fetch(url, opts);
+  }
+
+  async function refreshDriveList(){
+    const listEl = document.getElementById("driveFileList");
+    listEl.innerHTML = "Laddar...";
+    const q = encodeURIComponent(`'${driveFolderId}' in parents and trashed=false and mimeType='application/json'`);
+    const res = await gapiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`);
+    const data = await res.json();
+    listEl.innerHTML = "";
+    if(!data.files || !data.files.length){
+      listEl.innerHTML = "<div class='driveFileRow' style='cursor:default;color:#888'>Inga sparade projekt än.</div>";
+      return;
+    }
+    for(const f of data.files){
+      const row = document.createElement("div");
+      row.className = "driveFileRow";
+      const d = new Date(f.modifiedTime);
+      row.textContent = `${f.name}  (${d.toLocaleDateString("sv-SE")} ${d.toLocaleTimeString("sv-SE",{hour:"2-digit",minute:"2-digit"})})`;
+      row.addEventListener("click", async ()=>{
+        setDriveStatus("Öppnar "+f.name+"...");
+        const r = await gapiFetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`);
+        const json = await r.json();
+        loadProjectData(json);
+        setDriveStatus("Öppnade "+f.name+".");
+        driveModal.classList.remove("show");
+      });
+      listEl.appendChild(row);
+    }
+  }
+  document.getElementById("btnDriveRefresh").addEventListener("click", refreshDriveList);
+
+  document.getElementById("btnDriveSaveProj").addEventListener("click", async ()=>{
+    if(!driveAccessToken){ setDriveStatus("Anslut först."); return; }
+    setDriveStatus("Sparar...");
+    const name = (projNameEl.value.trim() || "kaplayout-projekt") + ".json";
+    const data = { projectName: projNameEl.value, kerf, objects };
+    const q = encodeURIComponent(`name='${name.replace(/'/g,"\\'")}' and '${driveFolderId}' in parents and trashed=false`);
+    const existing = await (await gapiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`)).json();
+
+    const boundary = "kaplayout_boundary";
+    const metadata = existing.files && existing.files.length
+      ? { name }
+      : { name, parents:[driveFolderId] };
+    const body =
+      `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(metadata)}\r\n` +
+      `--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--${boundary}--`;
+
+    let url = "https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart";
+    let method = "POST";
+    if(existing.files && existing.files.length){
+      url = `https://www.googleapis.com/upload/drive/v3/files/${existing.files[0].id}?uploadType=multipart`;
+      method = "PATCH";
+    }
+    const res = await gapiFetch(url, {
+      method,
+      headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
+      body
+    });
+    if(res.ok){ setDriveStatus("Sparat till Drive: "+name); refreshDriveList(); }
+    else { setDriveStatus("Fel vid sparning ("+res.status+")"); }
+  });
+
+  // ---------- init ----------
+  loadDriveCfg();
+  autoload();
+  resizeCanvas();
+  renderObjList();
+  syncSelPanel();
+})();
+</script>
+</body>
+</html>
