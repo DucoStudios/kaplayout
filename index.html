@@ -7,15 +7,15 @@
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
   :root{
-    --limestone:#efe8da;
+    --limestone:#ffffff;
     --ink:#1c1b17;
     --ink-2:#2b2a24;
-    --paper:#f4efe2;
-    --gold:#d19a3d;
+    --paper:#fbfbfa;
+    --gold:#c98a2e;
     --gold-deep:#96631a;
-    --teal:#34515e;
-    --teal-deep:#1c2f36;
-    --line: rgba(28,27,23,.14);
+    --teal:#4a6b78;
+    --teal-deep:#33505c;
+    --line: rgba(20,20,18,.14);
     --panel-w: 260px;
   }
   *{box-sizing:border-box;}
@@ -40,30 +40,32 @@
   }
   label{ display:block; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:var(--teal); margin:8px 0 3px; }
   button{
-    cursor:pointer; border:1px solid var(--teal-deep); background:var(--teal);
-    color:#fff; padding:7px 10px; border-radius:6px; font-weight:600;
+    cursor:pointer; border:1.5px solid var(--ink); background:#fff;
+    color:var(--ink); padding:7px 10px; border-radius:4px; font-weight:600;
   }
-  button:hover{ background:var(--teal-deep); }
-  button.secondary{ background:var(--paper); color:var(--ink); border-color:var(--line); font-weight:500; }
-  button.secondary:hover{ background:#fff; }
+  button:hover{ background:var(--ink); color:#fff; }
+  button.secondary{ background:#fff; color:var(--ink-2); border-color:var(--line); font-weight:500; }
+  button.secondary:hover{ background:var(--paper); color:var(--ink); }
   button.danger{ background:#fff; color:#a33; border-color:#a33; }
   button.danger:hover{ background:#a33; color:#fff; }
-  button:disabled{ opacity:.45; cursor:not-allowed; }
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  #btnAdd, #btnDriveConnect{ background:var(--gold); border-color:var(--gold-deep); color:#fff; }
+  #btnAdd:hover, #btnDriveConnect:hover{ background:var(--gold-deep); }
 
   #app{ display:flex; flex-direction:column; height:100%; }
 
   header{
     display:flex; align-items:center; gap:16px;
-    padding:10px 16px; background:var(--teal-deep); color:#fff;
-    border-bottom:3px solid var(--gold);
+    padding:10px 16px; background:#fff; color:var(--ink);
+    border-bottom:2px solid var(--ink);
     flex:none;
   }
-  header h1{ font-size:18px; margin:0; color:#fff; white-space:nowrap; }
+  header h1{ font-size:17px; margin:0; color:var(--ink); white-space:nowrap; letter-spacing:.01em; }
   header .proj{ flex:1; max-width:260px; }
-  header .proj input{ background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.25); color:#fff; }
-  header .proj input::placeholder{ color:rgba(255,255,255,.6); }
-  header .kerf{ display:flex; align-items:center; gap:6px; white-space:nowrap; font-size:12.5px; }
-  header .kerf input{ width:64px; background:rgba(255,255,255,.1); border-color:rgba(255,255,255,.25); color:#fff; }
+  header .proj input{ background:var(--paper); border:1.5px dashed var(--line); color:var(--ink); }
+  header .proj input::placeholder{ color:#9a9890; }
+  header .kerf{ display:flex; align-items:center; gap:6px; white-space:nowrap; font-size:12.5px; color:var(--ink-2); }
+  header .kerf input{ width:64px; background:var(--paper); border:1.5px solid var(--line); color:var(--ink); }
   header .spacer{ flex:1; }
   header .actions{ display:flex; gap:8px; align-items:center; }
   header button{ padding:6px 10px; font-size:12.5px; }
@@ -88,7 +90,7 @@
   .objRow .nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .objRow .dims{ font-variant-numeric:tabular-nums; opacity:.8; font-size:11px; }
 
-  #canvasWrap{ flex:1; position:relative; background:#dfd6bf; min-width:0; }
+  #canvasWrap{ flex:1; position:relative; background:#ffffff; min-width:0; }
   canvas{ display:block; width:100%; height:100%; cursor:grab; }
   canvas.dragging{ cursor:grabbing; }
 
@@ -161,7 +163,7 @@
 
       <div id="objList">
         <h2>Objekt</h2>
-        <div class="hint">Klicka för att välja. Dra i arbetsytan för att flytta. Ctrl/Cmd+C / V för att kopiera.</div>
+        <div class="hint">Klicka för att välja, dra för att flytta. Dubbelklicka för att byta namn. Dra i guldhörnen för att ändra storlek. Ctrl/Cmd+C / V för att kopiera.</div>
         <div id="objRows"></div>
       </div>
     </div>
@@ -325,12 +327,42 @@
     return null;
   }
 
+  const HANDLE_PX = 11; // css px, matches drawing size
+  function handleHitTest(o, sx, sy){
+    // sx,sy = raw device-pixel screen coords. Returns corner index 0..3 or -1.
+    const corners = objCorners(o).map(([wx,wy]) => worldToScreen(wx,wy));
+    const thresh = (HANDLE_PX*0.9) * devicePixelRatio;
+    for(let i=0;i<4;i++){
+      const [hx,hy] = corners[i];
+      if(Math.hypot(sx-hx, sy-hy) <= thresh) return i;
+    }
+    return -1;
+  }
+
+  function resizeByCorner(o, cornerIndex, mx, my){
+    const rad = o.rot * Math.PI/180;
+    const cos = Math.cos(rad), sin = Math.sin(rad);
+    const signs = [[-1,-1],[1,-1],[1,1],[-1,1]];
+    const opp = signs[(cornerIndex+2)%4];
+    const fixedX = o.x + (opp[0]*o.w/2)*cos - (opp[1]*o.h/2)*sin;
+    const fixedY = o.y + (opp[0]*o.w/2)*sin + (opp[1]*o.h/2)*cos;
+    const dx = mx - fixedX, dy = my - fixedY;
+    // rotate (dx,dy) by -rad into the object's local frame
+    const ldx = dx*cos + dy*sin;
+    const ldy = -dx*sin + dy*cos;
+    const newW = Math.max(2, Math.abs(ldx));
+    const newH = Math.max(2, Math.abs(ldy));
+    const cx = fixedX + (ldx/2)*cos - (ldy/2)*sin;
+    const cy = fixedY + (ldx/2)*sin + (ldy/2)*cos;
+    o.w = newW; o.h = newH; o.x = cx; o.y = cy;
+  }
+
   // ---------- drawing ----------
   function draw(){
     const w = cv.width, h = cv.height;
     ctx.save();
     ctx.clearRect(0,0,w,h);
-    ctx.fillStyle = "#dfd6bf";
+    ctx.fillStyle = "#ffffff";
     ctx.fillRect(0,0,w,h);
 
     // grid every 100mm
@@ -364,11 +396,23 @@
       const pw = o.w * view.zoom * devicePixelRatio;
       const ph = o.h * view.zoom * devicePixelRatio;
 
-      ctx.fillStyle = o.color + "cc";
+      ctx.fillStyle = o.color + "3d";
       ctx.fillRect(-pw/2, -ph/2, pw, ph);
-      ctx.lineWidth = (o.id===selectedId ? 3 : 1.25) * devicePixelRatio;
-      ctx.strokeStyle = (o.id===selectedId) ? "#d19a3d" : "rgba(28,27,23,.5)";
+      ctx.lineWidth = (o.id===selectedId ? 2.5 : 2) * devicePixelRatio;
+      ctx.strokeStyle = (o.id===selectedId) ? "#c98a2e" : "#1c1b17";
       ctx.strokeRect(-pw/2, -ph/2, pw, ph);
+
+      if(o.id===selectedId){
+        const hs = HANDLE_PX * devicePixelRatio;
+        ctx.fillStyle = "#ffffff";
+        ctx.lineWidth = 1.5 * devicePixelRatio;
+        ctx.strokeStyle = "#c98a2e";
+        const hpts = [[-pw/2,-ph/2],[pw/2,-ph/2],[pw/2,ph/2],[-pw/2,ph/2]];
+        for(const [hx,hy] of hpts){
+          ctx.fillRect(hx-hs/2, hy-hs/2, hs, hs);
+          ctx.strokeRect(hx-hs/2, hy-hs/2, hs, hs);
+        }
+      }
 
       // label
       ctx.fillStyle = "#1c1b17";
@@ -474,12 +518,13 @@
   });
   projNameEl.addEventListener("input", autosave);
 
-  // ---------- canvas interaction: pan / select / drag / zoom ----------
-  let dragMode = null; // 'move' | 'pan'
+  // ---------- canvas interaction: pan / select / drag / resize / zoom ----------
+  let dragMode = null; // 'move' | 'pan' | 'resize'
   let dragObj = null;
   let dragStart = {x:0,y:0};
   let objStart = {x:0,y:0};
   let panStart = {x:0,y:0};
+  let resizeCorner = -1;
 
   function evtWorld(e){
     const r = cv.getBoundingClientRect();
@@ -487,8 +532,22 @@
     const sy = (e.clientY - r.top) * devicePixelRatio;
     return screenToWorld(sx,sy);
   }
+  function evtScreen(e){
+    const r = cv.getBoundingClientRect();
+    return [ (e.clientX - r.left) * devicePixelRatio, (e.clientY - r.top) * devicePixelRatio ];
+  }
 
   cv.addEventListener("mousedown", (e)=>{
+    const sel = getSel();
+    if(sel){
+      const [sx,sy] = evtScreen(e);
+      const ci = handleHitTest(sel, sx, sy);
+      if(ci >= 0){
+        dragMode = "resize"; dragObj = sel; resizeCorner = ci;
+        cv.classList.add("dragging");
+        return;
+      }
+    }
     const [wx,wy] = evtWorld(e);
     const hit = hitTest(wx,wy);
     if(hit){
@@ -507,8 +566,22 @@
     syncSelPanel(); renderObjList(); draw();
   });
 
+  cv.addEventListener("dblclick", (e)=>{
+    const [wx,wy] = evtWorld(e);
+    const hit = hitTest(wx,wy);
+    if(hit){
+      const nn = prompt("Nytt namn:", hit.name);
+      if(nn !== null){ hit.name = nn.trim(); renderObjList(); syncSelPanel(); draw(); autosave(); }
+    }
+  });
+
   window.addEventListener("mousemove", (e)=>{
-    if(dragMode === "move" && dragObj){
+    if(dragMode === "resize" && dragObj){
+      const [wx,wy] = evtWorld(e);
+      resizeByCorner(dragObj, resizeCorner, wx, wy);
+      syncSelPanel();
+      draw();
+    } else if(dragMode === "move" && dragObj){
       const [wx,wy] = evtWorld(e);
       let nx = objStart.x + (wx - dragStart.x);
       let ny = objStart.y + (wy - dragStart.y);
@@ -522,7 +595,7 @@
     }
   });
   window.addEventListener("mouseup", ()=>{
-    if(dragMode==="move") autosave();
+    if(dragMode==="move" || dragMode==="resize") autosave();
     dragMode = null; dragObj = null;
     cv.classList.remove("dragging");
   });
