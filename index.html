@@ -384,7 +384,11 @@
   }
 
   const HANDLE_PX = 11; // css px, matches drawing size
+  const HANDLE_MIN_RENDER_PX = 55; // don't allow grabbing corner handles on objects this small on screen -- too easy to grab by accident when zoomed out, use the exact-mm fields instead
   function handleHitTest(o, sx, sy){
+    const pw = o.w * view.zoom * devicePixelRatio;
+    const ph = o.h * view.zoom * devicePixelRatio;
+    if(pw < HANDLE_MIN_RENDER_PX*devicePixelRatio || ph < HANDLE_MIN_RENDER_PX*devicePixelRatio) return -1;
     // sx,sy = raw device-pixel screen coords. Returns corner index 0..3 or -1.
     const corners = objCorners(o).map(([wx,wy]) => worldToScreen(wx,wy));
     const thresh = (HANDLE_PX*0.9) * devicePixelRatio;
@@ -505,7 +509,7 @@
       ctx.strokeRect(-pw/2, -ph/2, pw, ph);
       ctx.setLineDash([]);
 
-      if(o.id===selectedId){
+      if(o.id===selectedId && pw >= HANDLE_MIN_RENDER_PX*devicePixelRatio && ph >= HANDLE_MIN_RENDER_PX*devicePixelRatio){
         const hs = HANDLE_PX * devicePixelRatio;
         ctx.fillStyle = "#ffffff";
         ctx.lineWidth = 1.5 * devicePixelRatio;
