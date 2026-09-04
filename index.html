@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="sv">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Kaptavlan — Duco</title>
+<title>CutBoard — Duco</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%AA%9A%3C/text%3E%3C/svg%3E">
 <script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
@@ -17,8 +17,6 @@
     --lavender-border:#d3d9f0;
     --gold:#c2603c;
     --gold-deep:#9c4a2e;
-    --teal:#4a6b78;
-    --teal-deep:#33505c;
     --line: rgba(20,20,18,.14);
     --panel-w: 260px;
   }
@@ -157,60 +155,64 @@
       background:#fff; color:#000; padding:16px;
     }
     #printArea h1{ font-size:20px; margin:0 0 2px; }
-    #printArea #printMeta{ font-size:12px; color:#444; margin:0 0 14px; }
-    #printArea img{ max-width:100%; border:1px solid #999; margin-bottom:18px; }
-    #printArea table{ width:100%; border-collapse:collapse; font-size:11px; }
+    #printArea #printMeta{ font-size:11.5px; color:#444; margin:0 0 16px; }
+    .printBoard{ break-inside:avoid; margin-bottom:16px; border:1px solid #ccc; border-radius:6px; padding:10px 12px; }
+    .printBoard h3{ font-size:13px; margin:0 0 8px; }
+    .printBoard svg{ display:block; width:100%; height:auto; max-height:180px; }
+    .printBoard .partsInBoard{ font-size:10.5px; color:#444; margin-top:6px; }
+    #printArea table{ width:100%; border-collapse:collapse; font-size:11px; margin-top:8px; }
     #printArea th, #printArea td{ border:1px solid #999; padding:4px 6px; text-align:left; }
     #printArea thead{ background:#eee; }
+    #printArea h2.tableHeading{ font-size:14px; margin:20px 0 6px; }
   }
 </style>
 </head>
 <body>
 <div id="app">
   <header>
-    <h1>🪚 Kaptavlan</h1>
-    <div class="proj"><input id="projName" type="text" placeholder="Projektnamn (t.ex. Jessica-luckor)"></div>
+    <h1>🪚 CutBoard</h1>
+    <div class="proj"><input id="projName" type="text" placeholder="Project name (e.g. Jessica's shutters)"></div>
     <div class="kerf">
-      <span>Sågblad</span>
+      <span>Saw kerf</span>
       <input id="kerfInput" type="number" step="0.1" min="0" value="3.0">
       <span>mm</span>
     </div>
     <div class="spacer"></div>
     <div class="actions">
-      <button class="secondary" id="btnPrint">Skriv ut</button>
-      <button class="secondary" id="btnExport">Exportera JSON</button>
-      <button class="secondary" id="btnImport">Importera JSON</button>
+      <button class="secondary" id="btnPrint">Print</button>
+      <button class="secondary" id="btnExport">Export JSON</button>
+      <button class="secondary" id="btnImport">Import JSON</button>
       <button id="btnDrive">Google Drive</button>
     </div>
   </header>
 
   <div id="main">
     <div id="left">
-      <h2>Ny bräda / skiva</h2>
-      <label>Namn</label>
-      <input id="newName" type="text" placeholder="t.ex. Bräda 1">
+      <h2>New board / sheet</h2>
+      <label>Name</label>
+      <input id="newName" type="text" placeholder="e.g. Board 1">
       <div class="row2">
-        <div><label>Bredd (mm)</label><input id="newW" type="number" step="0.1" min="0.1" value="220.0"></div>
-        <div><label>Höjd (mm)</label><input id="newH" type="number" step="0.1" min="0.1" value="1000.0"></div>
+        <div><label>Width (mm)</label><input id="newW" type="number" step="0.1" min="0.1" value="220.0"></div>
+        <div><label>Length (mm)</label><input id="newH" type="number" step="0.1" min="0.1" value="1000.0"></div>
       </div>
-      <label>Färg</label>
+      <label>Colour</label>
       <input id="newColor" type="color" value="#c9b88a">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:12.5px;color:var(--ink-2);margin-top:10px;">
-        <input id="newIsBoard" type="checkbox" style="width:auto;"> Grundbräda (bakgrund — kolliderar inte med det du lägger ovanpå)
+        <input id="newIsBoard" type="checkbox" style="width:auto;"> Base board (background — doesn't collide with what you place on it)
       </label>
-      <div class="btnrow"><button id="btnAdd" style="flex:1">Lägg till</button></div>
+      <div class="btnrow"><button id="btnAdd" style="flex:1">Add</button></div>
 
       <div id="objList">
-        <h2>Objekt</h2>
-        <div class="hint">Klicka för att välja, dra för att flytta. Dubbelklicka för att byta namn. Dra i guldhörnen för att ändra storlek. Ctrl/Cmd+C / V för att kopiera.</div>
-        <label>Sortera efter</label>
+        <h2>Objects</h2>
+        <div class="hint">Click to select, drag to move. Double-click to rename. Drag the gold corners to resize. Ctrl/Cmd+C / V to copy.</div>
+        <label>Sort by</label>
         <select id="sortSelect">
-          <option value="name">Namn (A–Ö)</option>
-          <option value="w_desc">Bredd, störst → minst</option>
-          <option value="w_asc">Bredd, minst → störst</option>
-          <option value="h_desc">Längd/höjd, störst → minst</option>
-          <option value="h_asc">Längd/höjd, minst → störst</option>
-          <option value="area_desc">Yta, störst → minst</option>
+          <option value="name">Name (A–Z)</option>
+          <option value="w_desc">Width, largest → smallest</option>
+          <option value="w_asc">Width, smallest → largest</option>
+          <option value="h_desc">Length, largest → smallest</option>
+          <option value="h_asc">Length, smallest → largest</option>
+          <option value="area_desc">Area, largest → smallest</option>
         </select>
         <div id="objRows" style="margin-top:8px;"></div>
       </div>
@@ -222,23 +224,23 @@
     </div>
 
     <div id="right">
-      <h2>Vald bräda</h2>
-      <label>Namn</label>
+      <h2>Selected board</h2>
+      <label>Name</label>
       <input id="selName" type="text">
       <div class="row2">
-        <div><label>Bredd (mm)</label><input id="selW" type="number" step="0.1" min="0.1"></div>
-        <div><label>Höjd (mm)</label><input id="selH" type="number" step="0.1" min="0.1"></div>
+        <div><label>Width (mm)</label><input id="selW" type="number" step="0.1" min="0.1"></div>
+        <div><label>Length (mm)</label><input id="selH" type="number" step="0.1" min="0.1"></div>
       </div>
-      <label>Rotation (grader)</label>
+      <label>Rotation (degrees)</label>
       <input id="selRot" type="number" step="1">
-      <label>Färg</label>
+      <label>Colour</label>
       <input id="selColor" type="color">
       <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:12.5px;color:var(--ink-2);margin-top:10px;">
-        <input id="selIsBoard" type="checkbox" style="width:auto;"> Grundbräda (bakgrund)
+        <input id="selIsBoard" type="checkbox" style="width:auto;"> Base board (background)
       </label>
       <div class="btnrow">
-        <button class="secondary" id="btnDup">Duplicera</button>
-        <button class="danger" id="btnDel">Ta bort</button>
+        <button class="secondary" id="btnDup">Duplicate</button>
+        <button class="danger" id="btnDel">Delete</button>
       </div>
     </div>
   </div>
@@ -247,32 +249,34 @@
 <div id="driveModal">
   <div class="box">
     <h3>Google Drive</h3>
-    <p>Kräver ett eget Google OAuth Client-ID (skapas en gång i Google Cloud Console, gratis). Klistra in det här — det sparas bara i din webbläsare.</p>
+    <p>Needs your own Google OAuth Client ID (created once, free, in Google Cloud Console). Paste it here — it's only stored in your browser.</p>
     <label>Google OAuth Client ID</label>
     <input id="driveClientId" type="text" placeholder="xxxxxxxx.apps.googleusercontent.com">
-    <label>Mapp-ID i Drive (valfritt, annars skapas "Kaplayout-projekt")</label>
-    <input id="driveFolderId" type="text" placeholder="lämna tomt för auto">
+    <label>Drive folder ID (optional, otherwise "CutBoard Projects" is created)</label>
+    <input id="driveFolderId" type="text" placeholder="leave blank for automatic">
     <div class="btnrow">
-      <button class="secondary" id="btnDriveSaveCfg">Spara inställning</button>
-      <button id="btnDriveConnect">Anslut</button>
+      <button class="secondary" id="btnDriveSaveCfg">Save settings</button>
+      <button id="btnDriveConnect">Connect</button>
     </div>
     <div id="driveFileList" style="display:none;"></div>
     <div class="btnrow" id="driveActionRow" style="display:none;">
-      <button class="secondary" id="btnDriveSaveProj">Spara projekt till Drive</button>
-      <button class="secondary" id="btnDriveRefresh">Uppdatera lista</button>
+      <button class="secondary" id="btnDriveSaveProj">Save project to Drive</button>
+      <button class="secondary" id="btnDriveRefresh">Refresh list</button>
     </div>
     <div id="driveStatus"></div>
-    <div class="btnrow"><button class="secondary" id="btnDriveClose" style="flex:1">Stäng</button></div>
+    <div class="btnrow"><button class="secondary" id="btnDriveClose" style="flex:1">Close</button></div>
   </div>
 </div>
 
 <input type="file" id="fileInput" accept="application/json" style="display:none">
 
 <div id="printArea">
-  <h1 id="printTitle">Kaptavlan</h1>
+  <h1 id="printTitle">CutBoard</h1>
   <p id="printMeta"></p>
+  <div id="printBoards"></div>
+  <h2 class="tableHeading">Parts list</h2>
   <table id="printTable">
-    <thead><tr><th>Namn</th><th>Bredd (mm)</th><th>Höjd (mm)</th><th>Rotation</th><th>Position (x, y)</th></tr></thead>
+    <thead><tr><th>Code</th><th>Name</th><th>Width (mm)</th><th>Length (mm)</th><th>Rotation</th><th>Board</th></tr></thead>
     <tbody id="printTableBody"></tbody>
   </table>
 </div>
@@ -282,7 +286,7 @@
   "use strict";
 
   // ---------- state ----------
-  let objects = [];      // {id,name,w,h,x,y,rot,color}
+  let objects = [];      // {id,name,w,h,x,y,rot,color,isBoard}
   let selectedId = null;
   let kerf = 3.0;
   let clipboard = [];
@@ -291,6 +295,8 @@
   const view = { panX: 40, panY: 40, zoom: 0.35 }; // px per mm
 
   // ---------- persistence (local) ----------
+  // NOTE: storage keys stay in their original form so existing saved
+  // projects (from before the English rewrite) keep loading correctly.
   const LS_KEY = "kaplayout_project_v1";
   function autosave(){
     try{
@@ -300,10 +306,10 @@
     }catch(e){}
   }
   // older saved projects have no isBoard flag -- infer it from the name so
-  // existing "grundbräda"-style boards immediately stop false-flagging as collisions
+  // existing "grundbräda"/"base board"-style boards don't false-flag as collisions
   function migrateObjects(objs){
     return (objs||[]).map(o=>({
-      isBoard: /^grundbr[aä]d/i.test(o.name||""),
+      isBoard: /^(grundbr[aä]d|base ?board)/i.test(o.name||""),
       ...o
     }));
   }
@@ -477,6 +483,58 @@
     return overlapping;
   }
 
+  // ---------- board/piece assignment (for labelling + print) ----------
+  function indexToLetters(i){
+    let s = "";
+    i++;
+    while(i>0){ i--; s = String.fromCharCode(65+(i%26))+s; i=Math.floor(i/26); }
+    return s;
+  }
+  function computeAssignments(){
+    const boards = objects.filter(o=>o.isBoard);
+    const pieces = objects.filter(o=>!o.isBoard);
+    const sortedBoards = [...boards].sort((a,b)=> (a.x-b.x) || (a.y-b.y));
+    const boardCode = new Map();
+    sortedBoards.forEach((b,i)=> boardCode.set(b.id, indexToLetters(i)));
+
+    const byBoard = new Map();
+    const unplaced = [];
+    for(const p of pieces){
+      let home = null;
+      for(const b of sortedBoards){ if(pointInObj(b, p.x, p.y)){ home=b; break; } }
+      if(!home){ unplaced.push(p); continue; }
+      if(!byBoard.has(home.id)) byBoard.set(home.id, []);
+      byBoard.get(home.id).push(p);
+    }
+
+    const pieceCode = new Map();
+    const pieceBoardName = new Map();
+    const layout = new Map(); // boardId -> [{piece, lx, ly, printRot}] sorted along the board
+    for(const b of sortedBoards){
+      const list = byBoard.get(b.id) || [];
+      const swap = b.h > b.w;
+      const withPos = list.map(p=>{
+        const rad = -b.rot*Math.PI/180;
+        const dx = p.x-b.x, dy = p.y-b.y;
+        let lx = dx*Math.cos(rad) - dy*Math.sin(rad);
+        let ly = dx*Math.sin(rad) + dy*Math.cos(rad);
+        if(swap){ const nx=-ly, ny=lx; lx=nx; ly=ny; }
+        const printRot = ((p.rot - b.rot + (swap?90:0)) % 360 + 360) % 360;
+        return {piece:p, lx, ly, printRot};
+      });
+      withPos.sort((a,b2)=> a.lx - b2.lx);
+      withPos.forEach((entry,i)=>{
+        const code = boardCode.get(b.id) + (i+1);
+        pieceCode.set(entry.piece.id, code);
+        pieceBoardName.set(entry.piece.id, `${boardCode.get(b.id)} — ${b.name}`);
+      });
+      layout.set(b.id, {swap, diagW: swap?b.h:b.w, diagH: swap?b.w:b.h, items: withPos});
+    }
+    unplaced.forEach((p,i)=> { pieceCode.set(p.id, "U"+(i+1)); pieceBoardName.set(p.id, "— none —"); });
+
+    return { sortedBoards, boardCode, unplaced, pieceCode, pieceBoardName, layout };
+  }
+
   // ---------- drawing ----------
   function draw(){
     const w = cv.width, h = cv.height;
@@ -546,7 +604,7 @@
       ctx.font = `600 ${fontPx}px ui-sans-serif, Arial`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
-      const label = o.name || "(namnlös)";
+      const label = o.name || "(unnamed)";
       const dims = `${o.w.toFixed(1)} × ${o.h.toFixed(1)} mm`;
       if(pw > 40*devicePixelRatio && ph > 24*devicePixelRatio){
         ctx.fillText(label, 0, -fontPx*0.65);
@@ -558,8 +616,8 @@
     ctx.restore();
 
     const overlapCount = overlapping.size;
-    zoomHud.textContent = `Zoom ${(view.zoom*100).toFixed(0)}% · Sågblad ${kerf.toFixed(1)}mm · Objekt ${objects.length}` +
-      (overlapCount ? ` · ⚠ ${overlapCount} överlappande` : " · Inga överlapp");
+    zoomHud.textContent = `Zoom ${(view.zoom*100).toFixed(0)}% · Saw kerf ${kerf.toFixed(1)}mm · Objects ${objects.length}` +
+      (overlapCount ? ` · ⚠ ${overlapCount} overlapping` : " · No overlaps");
     zoomHud.style.color = overlapCount ? "#ffb4ab" : "#fff";
     return overlapping;
   }
@@ -574,7 +632,7 @@
       case "h_desc": arr.sort((a,b)=> b.h - a.h); break;
       case "h_asc":  arr.sort((a,b)=> a.h - b.h); break;
       case "area_desc": arr.sort((a,b)=> (b.w*b.h) - (a.w*a.h)); break;
-      default: arr.sort((a,b)=> (a.name||"").localeCompare(b.name||"", "sv"));
+      default: arr.sort((a,b)=> (a.name||"").localeCompare(b.name||""));
     }
     return arr;
   }
@@ -590,12 +648,12 @@
 
       const row = document.createElement("div");
       row.className = "objRow" + (o.id===selectedId ? " selected" : "");
-      const warn = overlapping.has(o.id) ? `<span title="Överlappar en annan bräda" style="color:#c0392b;font-weight:700;">⚠</span>` : "";
-      const boardTag = o.isBoard ? `<span title="Grundbräda" style="opacity:.55;font-size:11px;">▦</span>` : "";
+      const warn = overlapping.has(o.id) ? `<span title="Overlaps another object" style="color:#c0392b;font-weight:700;">⚠</span>` : "";
+      const boardTag = o.isBoard ? `<span title="Base board" style="opacity:.55;font-size:11px;">▦</span>` : "";
       const isOpen = expandedId === o.id;
       row.innerHTML = `<span class="expandArrow">${isOpen ? "▾" : "▸"}</span>
         <span class="swatch" style="background:${o.color}"></span>
-        ${boardTag}<span class="nm">${escapeHtml(o.name||"(namnlös)")}</span>
+        ${boardTag}<span class="nm">${escapeHtml(o.name||"(unnamed)")}</span>
         <span class="dims">${o.w.toFixed(1)}×${o.h.toFixed(1)}</span> ${warn}`;
       row.addEventListener("click", ()=>{
         selectedId = o.id;
@@ -608,22 +666,22 @@
         const edit = document.createElement("div");
         edit.className = "objEdit";
         edit.innerHTML = `
-          <label>Namn</label>
+          <label>Name</label>
           <input class="e-name" type="text" value="${escapeHtml(o.name)}">
           <div class="row2">
-            <div><label>Bredd (mm)</label><input class="e-w" type="number" step="0.1" min="0.1" value="${o.w.toFixed(1)}"></div>
-            <div><label>Höjd (mm)</label><input class="e-h" type="number" step="0.1" min="0.1" value="${o.h.toFixed(1)}"></div>
+            <div><label>Width (mm)</label><input class="e-w" type="number" step="0.1" min="0.1" value="${o.w.toFixed(1)}"></div>
+            <div><label>Length (mm)</label><input class="e-h" type="number" step="0.1" min="0.1" value="${o.h.toFixed(1)}"></div>
           </div>
-          <label>Rotation (grader)</label>
+          <label>Rotation (degrees)</label>
           <input class="e-rot" type="number" step="1" value="${o.rot}">
-          <label>Färg</label>
+          <label>Colour</label>
           <input class="e-color" type="color" value="${o.color}">
           <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:12.5px;color:var(--ink-2);margin-top:10px;">
-            <input class="e-board" type="checkbox" style="width:auto;" ${o.isBoard?"checked":""}> Grundbräda (bakgrund)
+            <input class="e-board" type="checkbox" style="width:auto;" ${o.isBoard?"checked":""}> Base board (background)
           </label>
           <div class="btnrow">
-            <button class="secondary e-dup">Duplicera</button>
-            <button class="danger e-del">Ta bort</button>
+            <button class="secondary e-dup">Duplicate</button>
+            <button class="danger e-del">Delete</button>
           </div>
         `;
         const byClass = (c)=> edit.querySelector("."+c);
@@ -633,7 +691,7 @@
         byClass("e-rot").addEventListener("input", (e)=>{ const v=parseFloat(e.target.value); if(!isNaN(v)){ o.rot=v; draw(); autosave(); } });
         byClass("e-color").addEventListener("input", (e)=>{ o.color = e.target.value; renderObjList(); draw(); autosave(); });
         byClass("e-board").addEventListener("change", (e)=>{ o.isBoard = e.target.checked; renderObjList(); draw(); autosave(); });
-        byClass("e-dup").addEventListener("click", ()=>{ addObject(o.name+" (kopia)", o.w, o.h, o.color, o.x+30, o.y+30, o.isBoard); });
+        byClass("e-dup").addEventListener("click", ()=>{ addObject(o.name+" (copy)", o.w, o.h, o.color, o.x+30, o.y+30, o.isBoard); });
         byClass("e-del").addEventListener("click", ()=>{
           objects = objects.filter(x=>x.id!==o.id);
           if(selectedId===o.id) selectedId=null;
@@ -667,7 +725,7 @@
   function addObject(name, w, h, color, x, y, isBoard){
     const o = {
       id: uid(),
-      name: name || `Bräda ${objects.length+1}`,
+      name: name || `Board ${objects.length+1}`,
       w: Math.max(0.1, w), h: Math.max(0.1, h),
       x: (x!==undefined) ? x : 100 + (objects.length%6)*40,
       y: (y!==undefined) ? y : 100 + Math.floor(objects.length/6)*40,
@@ -683,14 +741,14 @@
 
   document.getElementById("btnAdd").addEventListener("click", ()=>{
     const w = parseFloat(newW.value), h = parseFloat(newH.value);
-    if(!(w>0) || !(h>0)){ alert("Ange giltig bredd och höjd i mm."); return; }
+    if(!(w>0) || !(h>0)){ alert("Enter a valid width and length in mm."); return; }
     addObject(newName.value.trim(), w, h, newColor.value, undefined, undefined, newIsBoard.checked);
     newName.value = "";
   });
 
   document.getElementById("btnDup").addEventListener("click", ()=>{
     const o = getSel(); if(!o) return;
-    addObject(o.name + " (kopia)", o.w, o.h, o.color, o.x+30, o.y+30, o.isBoard);
+    addObject(o.name + " (copy)", o.w, o.h, o.color, o.x+30, o.y+30, o.isBoard);
   });
   document.getElementById("btnDel").addEventListener("click", ()=>{
     if(!selectedId) return;
@@ -778,7 +836,7 @@
     const [wx,wy] = evtWorld(e);
     const hit = hitTest(wx,wy);
     if(hit){
-      const nn = prompt("Nytt namn:", hit.name);
+      const nn = prompt("New name:", hit.name);
       if(nn !== null){ hit.name = nn.trim(); renderObjList(); syncSelPanel(); draw(); autosave(); }
     }
   });
@@ -864,36 +922,66 @@
       const o = getSel(); if(o) clipboard = [JSON.parse(JSON.stringify(o))];
     } else if((e.ctrlKey||e.metaKey) && e.key.toLowerCase()==="v"){
       for(const c of clipboard){
-        addObject(c.name+" (kopia)", c.w, c.h, c.color, c.x+30, c.y+30);
+        addObject(c.name+" (copy)", c.w, c.h, c.color, c.x+30, c.y+30, c.isBoard);
       }
     } else if(e.key==="Delete" || e.key==="Backspace"){
       if(selectedId){ document.getElementById("btnDel").click(); }
     }
   });
 
-  // ---------- print ----------
+  // ---------- print: per-board cut diagrams + labelled parts list ----------
   document.getElementById("btnPrint").addEventListener("click", ()=>{
     const overlapping = computeOverlaps();
-    document.getElementById("printTitle").textContent = projNameEl.value.trim() || "Kaptavlan";
-    const d = new Date();
-    document.getElementById("printMeta").textContent =
-      `Sågblad ${kerf.toFixed(1)}mm · ${objects.length} objekt · Utskrivet ${d.toLocaleDateString("sv-SE")}` +
-      (overlapping.size ? ` · ⚠ ${overlapping.size} objekt överlappar varandra — kontrollera arbetsytan!` : "");
+    const { sortedBoards, boardCode, unplaced, pieceCode, pieceBoardName, layout } = computeAssignments();
 
-    // snapshot the canvas as-is
-    const existingImg = document.querySelector("#printArea img");
-    if(existingImg) existingImg.remove();
-    const img = document.createElement("img");
-    img.src = cv.toDataURL("image/png");
-    document.getElementById("printTable").before(img);
+    document.getElementById("printTitle").textContent = projNameEl.value.trim() || "CutBoard";
+    const d = new Date();
+    let meta = `Saw kerf ${kerf.toFixed(1)}mm · ${objects.length} objects · Printed ${d.toLocaleDateString("en-GB")}`;
+    if(overlapping.size) meta += ` · ⚠ ${overlapping.size} objects overlap — check the workspace before cutting!`;
+    if(unplaced.length) meta += ` · ${unplaced.length} piece(s) not placed on any base board`;
+    document.getElementById("printMeta").textContent = meta;
+
+    const boardsEl = document.getElementById("printBoards");
+    boardsEl.innerHTML = "";
+    for(const b of sortedBoards){
+      const { diagW, diagH, items } = layout.get(b.id);
+      const strokeW = Math.max(diagW,diagH) * 0.0025;
+      let svg = `<svg viewBox="0 0 ${diagW} ${diagH}" role="img" aria-label="Cut layout for board ${boardCode.get(b.id)}">
+        <rect x="0" y="0" width="${diagW}" height="${diagH}" fill="#fafafa" stroke="#333" stroke-width="${strokeW}"/>`;
+      for(const entry of items){
+        const cx = diagW/2 + entry.lx, cy = diagH/2 + entry.ly;
+        const code = pieceCode.get(entry.piece.id);
+        const shortSide = Math.min(entry.piece.w, entry.piece.h);
+        const fs = Math.max(diagH*0.1, Math.min(shortSide*0.45, diagW*0.03));
+        svg += `<g transform="translate(${cx.toFixed(2)},${cy.toFixed(2)}) rotate(${entry.printRot.toFixed(1)})">
+          <rect x="${(-entry.piece.w/2).toFixed(2)}" y="${(-entry.piece.h/2).toFixed(2)}" width="${entry.piece.w.toFixed(2)}" height="${entry.piece.h.toFixed(2)}" fill="${entry.piece.color}77" stroke="#222" stroke-width="${strokeW}"/>
+          <text x="0" y="0" text-anchor="middle" dominant-baseline="central" font-size="${fs.toFixed(1)}" font-weight="700" fill="#111">${code}</text>
+        </g>`;
+      }
+      svg += `</svg>`;
+      const partsLine = items.map(entry => `${pieceCode.get(entry.piece.id)} ${escapeHtml(entry.piece.name)} (${entry.piece.w.toFixed(1)}×${entry.piece.h.toFixed(1)}mm)`).join(" · ") || "No pieces placed on this board.";
+      const section = document.createElement("div");
+      section.className = "printBoard";
+      section.innerHTML = `<h3>Board ${boardCode.get(b.id)} — ${escapeHtml(b.name)} (${b.w.toFixed(1)} × ${b.h.toFixed(1)} mm)</h3>${svg}<div class="partsInBoard">${partsLine}</div>`;
+      boardsEl.appendChild(section);
+    }
+    if(unplaced.length){
+      const section = document.createElement("div");
+      section.className = "printBoard";
+      section.style.borderColor = "#c0392b";
+      const list = unplaced.map(p => `${pieceCode.get(p.id)} ${escapeHtml(p.name)} (${p.w.toFixed(1)}×${p.h.toFixed(1)}mm)`).join(" · ");
+      section.innerHTML = `<h3 style="color:#a33;">⚠ Not placed on any base board</h3><div class="partsInBoard">${list}</div>`;
+      boardsEl.appendChild(section);
+    }
 
     const body = document.getElementById("printTableBody");
     body.innerHTML = "";
-    const sorted = [...objects].sort((a,b)=> (a.name||"").localeCompare(b.name||"", "sv"));
-    for(const o of sorted){
+    const pieces = objects.filter(o=>!o.isBoard)
+      .sort((a,b)=> (pieceCode.get(a.id)||"").localeCompare(pieceCode.get(b.id)||"", undefined, {numeric:true}));
+    for(const o of pieces){
       const tr = document.createElement("tr");
       const warn = overlapping.has(o.id) ? " ⚠" : "";
-      tr.innerHTML = `<td>${escapeHtml(o.name||"(namnlös)")}${warn}</td><td>${o.w.toFixed(1)}</td><td>${o.h.toFixed(1)}</td><td>${o.rot}°</td><td>${o.x.toFixed(0)}, ${o.y.toFixed(0)}</td>`;
+      tr.innerHTML = `<td><strong>${pieceCode.get(o.id)}</strong></td><td>${escapeHtml(o.name||"(unnamed)")}${warn}</td><td>${o.w.toFixed(1)}</td><td>${o.h.toFixed(1)}</td><td>${o.rot}°</td><td>${escapeHtml(pieceBoardName.get(o.id)||"")}</td>`;
       body.appendChild(tr);
     }
     window.print();
@@ -906,7 +994,7 @@
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = (projNameEl.value.trim() || "kaplayout-projekt") + ".json";
+    a.download = (projNameEl.value.trim() || "cutboard-project") + ".json";
     a.click();
     URL.revokeObjectURL(url);
   });
@@ -918,7 +1006,7 @@
     reader.onload = () => {
       try{
         loadProjectData(JSON.parse(reader.result));
-      }catch(e){ alert("Kunde inte läsa filen: "+e.message); }
+      }catch(e){ alert("Could not read the file: "+e.message); }
     };
     reader.readAsText(f);
     fileInput.value = "";
@@ -962,25 +1050,25 @@
   document.getElementById("btnDriveClose").addEventListener("click", ()=>{ driveModal.classList.remove("show"); });
   document.getElementById("btnDriveSaveCfg").addEventListener("click", ()=>{
     saveDriveCfg();
-    setDriveStatus("Inställning sparad lokalt.");
+    setDriveStatus("Settings saved locally.");
   });
 
   function setDriveStatus(msg){ document.getElementById("driveStatus").textContent = msg; }
 
   document.getElementById("btnDriveConnect").addEventListener("click", ()=>{
     saveDriveCfg();
-    if(!driveClientIdVal){ setDriveStatus("Ange ett Client ID först."); return; }
+    if(!driveClientIdVal){ setDriveStatus("Enter a Client ID first."); return; }
     if(typeof google === "undefined" || !google.accounts){
-      setDriveStatus("Google-biblioteket har inte laddats än, försök igen om en sekund.");
+      setDriveStatus("The Google library hasn't loaded yet, try again in a second.");
       return;
     }
     driveTokenClient = google.accounts.oauth2.initTokenClient({
       client_id: driveClientIdVal,
       scope: "https://www.googleapis.com/auth/drive.file",
       callback: async (resp) => {
-        if(resp.error){ setDriveStatus("Fel vid inloggning: "+resp.error); return; }
+        if(resp.error){ setDriveStatus("Sign-in error: "+resp.error); return; }
         driveAccessToken = resp.access_token;
-        setDriveStatus("Ansluten till Google Drive.");
+        setDriveStatus("Connected to Google Drive.");
         document.getElementById("driveActionRow").style.display = "flex";
         document.getElementById("driveFileList").style.display = "block";
         await ensureFolder();
@@ -992,8 +1080,8 @@
 
   async function ensureFolder(){
     if(driveFolderId) return driveFolderId;
-    // search for existing "Kaplayout-projekt" folder, else create it
-    const q = encodeURIComponent("name='Kaplayout-projekt' and mimeType='application/vnd.google-apps.folder' and trashed=false");
+    // search for existing "CutBoard Projects" folder, else create it
+    const q = encodeURIComponent("name='CutBoard Projects' and mimeType='application/vnd.google-apps.folder' and trashed=false");
     const res = await gapiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
     const data = await res.json();
     if(data.files && data.files.length){
@@ -1002,7 +1090,7 @@
       const createRes = await gapiFetch("https://www.googleapis.com/drive/v3/files", {
         method:"POST",
         headers:{ "Content-Type":"application/json" },
-        body: JSON.stringify({ name:"Kaplayout-projekt", mimeType:"application/vnd.google-apps.folder" })
+        body: JSON.stringify({ name:"CutBoard Projects", mimeType:"application/vnd.google-apps.folder" })
       });
       const created = await createRes.json();
       driveFolderId = created.id;
@@ -1020,26 +1108,26 @@
 
   async function refreshDriveList(){
     const listEl = document.getElementById("driveFileList");
-    listEl.innerHTML = "Laddar...";
+    listEl.innerHTML = "Loading...";
     const q = encodeURIComponent(`'${driveFolderId}' in parents and trashed=false and mimeType='application/json'`);
     const res = await gapiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name,modifiedTime)&orderBy=modifiedTime desc`);
     const data = await res.json();
     listEl.innerHTML = "";
     if(!data.files || !data.files.length){
-      listEl.innerHTML = "<div class='driveFileRow' style='cursor:default;color:#888'>Inga sparade projekt än.</div>";
+      listEl.innerHTML = "<div class='driveFileRow' style='cursor:default;color:#888'>No saved projects yet.</div>";
       return;
     }
     for(const f of data.files){
       const row = document.createElement("div");
       row.className = "driveFileRow";
       const d = new Date(f.modifiedTime);
-      row.textContent = `${f.name}  (${d.toLocaleDateString("sv-SE")} ${d.toLocaleTimeString("sv-SE",{hour:"2-digit",minute:"2-digit"})})`;
+      row.textContent = `${f.name}  (${d.toLocaleDateString("en-GB")} ${d.toLocaleTimeString("en-GB",{hour:"2-digit",minute:"2-digit"})})`;
       row.addEventListener("click", async ()=>{
-        setDriveStatus("Öppnar "+f.name+"...");
+        setDriveStatus("Opening "+f.name+"...");
         const r = await gapiFetch(`https://www.googleapis.com/drive/v3/files/${f.id}?alt=media`);
         const json = await r.json();
         loadProjectData(json);
-        setDriveStatus("Öppnade "+f.name+".");
+        setDriveStatus("Opened "+f.name+".");
         driveModal.classList.remove("show");
       });
       listEl.appendChild(row);
@@ -1048,9 +1136,9 @@
   document.getElementById("btnDriveRefresh").addEventListener("click", refreshDriveList);
 
   document.getElementById("btnDriveSaveProj").addEventListener("click", async ()=>{
-    if(!driveAccessToken){ setDriveStatus("Anslut först."); return; }
-    setDriveStatus("Sparar...");
-    const name = (projNameEl.value.trim() || "kaplayout-projekt") + ".json";
+    if(!driveAccessToken){ setDriveStatus("Connect first."); return; }
+    setDriveStatus("Saving...");
+    const name = (projNameEl.value.trim() || "cutboard-project") + ".json";
     const data = { projectName: projNameEl.value, kerf, objects };
     const q = encodeURIComponent(`name='${name.replace(/'/g,"\\'")}' and '${driveFolderId}' in parents and trashed=false`);
     const existing = await (await gapiFetch(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id)`)).json();
@@ -1074,8 +1162,8 @@
       headers: { "Content-Type": `multipart/related; boundary=${boundary}` },
       body
     });
-    if(res.ok){ setDriveStatus("Sparat till Drive: "+name); refreshDriveList(); }
-    else { setDriveStatus("Fel vid sparning ("+res.status+")"); }
+    if(res.ok){ setDriveStatus("Saved to Drive: "+name); refreshDriveList(); }
+    else { setDriveStatus("Error saving ("+res.status+")"); }
   });
 
   // ---------- init ----------
