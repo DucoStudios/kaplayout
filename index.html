@@ -204,7 +204,7 @@
 
       <div id="objList">
         <h2>Objects</h2>
-        <div class="hint">Click to select, drag to move. Double-click to rename. Drag the gold corners to resize. Ctrl/Cmd+C / V to copy.</div>
+        <div class="hint">Click to select, drag to move — the list below expands with full edit fields. Drag the gold corners to resize. Ctrl/Cmd+C / V to copy.</div>
         <label>Sort by</label>
         <select id="sortSelect">
           <option value="name">Name (A–Z)</option>
@@ -830,15 +830,6 @@
       cv.classList.add("dragging");
     }
     syncSelPanel(); renderObjList(); draw();
-  });
-
-  cv.addEventListener("dblclick", (e)=>{
-    const [wx,wy] = evtWorld(e);
-    const hit = hitTest(wx,wy);
-    if(hit){
-      const nn = prompt("New name:", hit.name);
-      if(nn !== null){ hit.name = nn.trim(); renderObjList(); syncSelPanel(); draw(); autosave(); }
-    }
   });
 
   window.addEventListener("mousemove", (e)=>{
