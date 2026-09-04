@@ -89,16 +89,24 @@
   #left .hint{ font-size:11.5px; color:var(--ink-2); margin-bottom:10px; line-height:1.4; }
 
   #objList{ margin-top:14px; border-top:1px solid var(--line); padding-top:10px; }
+  .objRowWrap{ margin-bottom:5px; }
   .objRow{
     display:flex; align-items:center; gap:8px; padding:7px 8px;
     border-radius:10px; cursor:pointer; font-size:12.5px;
-    background:#fff; margin-bottom:5px; border:1px solid transparent;
+    background:#fff; border:1px solid transparent;
   }
   .objRow:hover{ border-color:var(--lavender-border); }
   .objRow.selected{ background:var(--gold); color:#fff; }
+  .objRow .expandArrow{ flex:none; width:12px; opacity:.6; font-size:10px; }
   .objRow .swatch{ width:14px; height:14px; border-radius:4px; flex:none; border:1px solid rgba(0,0,0,.2); }
   .objRow .nm{ flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .objRow .dims{ font-variant-numeric:tabular-nums; opacity:.8; font-size:11px; }
+  .objEdit{
+    background:var(--lavender); border:1.5px solid var(--lavender-border);
+    border-top:none; border-radius:0 0 10px 10px; padding:10px 10px 12px;
+    margin-top:-6px; padding-top:14px;
+  }
+  .objEdit input[type="number"], .objEdit input[type="text"]{ background:#fff; }
 
   #canvasWrap{ flex:1; position:relative; background:var(--canvas-white); min-width:0; }
   canvas{ display:block; width:100%; height:100%; cursor:grab; }
@@ -570,19 +578,71 @@
     return arr;
   }
 
+  let expandedId = null;
+
   function renderObjList(){
     objRowsEl.innerHTML = "";
     const overlapping = computeOverlaps();
     for(const o of sortObjectsForList(objects)){
+      const wrap = document.createElement("div");
+      wrap.className = "objRowWrap";
+
       const row = document.createElement("div");
       row.className = "objRow" + (o.id===selectedId ? " selected" : "");
       const warn = overlapping.has(o.id) ? `<span title="Överlappar en annan bräda" style="color:#c0392b;font-weight:700;">⚠</span>` : "";
       const boardTag = o.isBoard ? `<span title="Grundbräda" style="opacity:.55;font-size:11px;">▦</span>` : "";
-      row.innerHTML = `<span class="swatch" style="background:${o.color}"></span>
+      const isOpen = expandedId === o.id;
+      row.innerHTML = `<span class="expandArrow">${isOpen ? "▾" : "▸"}</span>
+        <span class="swatch" style="background:${o.color}"></span>
         ${boardTag}<span class="nm">${escapeHtml(o.name||"(namnlös)")}</span>
         <span class="dims">${o.w.toFixed(1)}×${o.h.toFixed(1)}</span> ${warn}`;
-      row.addEventListener("click", ()=>{ selectedId = o.id; syncSelPanel(); renderObjList(); draw(); });
-      objRowsEl.appendChild(row);
+      row.addEventListener("click", ()=>{
+        selectedId = o.id;
+        expandedId = (expandedId === o.id) ? null : o.id;
+        syncSelPanel(); renderObjList(); draw();
+      });
+      wrap.appendChild(row);
+
+      if(isOpen){
+        const edit = document.createElement("div");
+        edit.className = "objEdit";
+        edit.innerHTML = `
+          <label>Namn</label>
+          <input class="e-name" type="text" value="${escapeHtml(o.name)}">
+          <div class="row2">
+            <div><label>Bredd (mm)</label><input class="e-w" type="number" step="0.1" min="0.1" value="${o.w.toFixed(1)}"></div>
+            <div><label>Höjd (mm)</label><input class="e-h" type="number" step="0.1" min="0.1" value="${o.h.toFixed(1)}"></div>
+          </div>
+          <label>Rotation (grader)</label>
+          <input class="e-rot" type="number" step="1" value="${o.rot}">
+          <label>Färg</label>
+          <input class="e-color" type="color" value="${o.color}">
+          <label style="display:flex;align-items:center;gap:6px;text-transform:none;font-size:12.5px;color:var(--ink-2);margin-top:10px;">
+            <input class="e-board" type="checkbox" style="width:auto;" ${o.isBoard?"checked":""}> Grundbräda (bakgrund)
+          </label>
+          <div class="btnrow">
+            <button class="secondary e-dup">Duplicera</button>
+            <button class="danger e-del">Ta bort</button>
+          </div>
+        `;
+        const byClass = (c)=> edit.querySelector("."+c);
+        byClass("e-name").addEventListener("input", (e)=>{ o.name = e.target.value; renderObjList(); draw(); autosave(); });
+        byClass("e-w").addEventListener("input", (e)=>{ const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0){ o.w=v; draw(); autosave(); } });
+        byClass("e-h").addEventListener("input", (e)=>{ const v=parseFloat(e.target.value); if(!isNaN(v)&&v>0){ o.h=v; draw(); autosave(); } });
+        byClass("e-rot").addEventListener("input", (e)=>{ const v=parseFloat(e.target.value); if(!isNaN(v)){ o.rot=v; draw(); autosave(); } });
+        byClass("e-color").addEventListener("input", (e)=>{ o.color = e.target.value; renderObjList(); draw(); autosave(); });
+        byClass("e-board").addEventListener("change", (e)=>{ o.isBoard = e.target.checked; renderObjList(); draw(); autosave(); });
+        byClass("e-dup").addEventListener("click", ()=>{ addObject(o.name+" (kopia)", o.w, o.h, o.color, o.x+30, o.y+30, o.isBoard); });
+        byClass("e-del").addEventListener("click", ()=>{
+          objects = objects.filter(x=>x.id!==o.id);
+          if(selectedId===o.id) selectedId=null;
+          expandedId = null;
+          renderObjList(); syncSelPanel(); draw(); autosave();
+        });
+        wrap.appendChild(edit);
+      }
+
+      objRowsEl.appendChild(wrap);
     }
   }
   document.getElementById("sortSelect").addEventListener("change", renderObjList);
@@ -698,6 +758,7 @@
     const hit = hitTest(wx,wy);
     if(hit){
       selectedId = hit.id;
+      expandedId = hit.id;
       dragMode = "move"; dragObj = hit;
       dragStart = {x:wx,y:wy};
       objStart = {x:hit.x, y:hit.y};
