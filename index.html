@@ -108,7 +108,7 @@
   .objEdit input[type="number"], .objEdit input[type="text"]{ background:#fff; }
 
   #canvasWrap{ flex:1; position:relative; background:var(--canvas-white); min-width:0; }
-  canvas{ display:block; width:100%; height:100%; cursor:grab; }
+  canvas{ display:block; width:100%; height:100%; cursor:grab; touch-action:none; }
   canvas.dragging{ cursor:grabbing; }
 
   #right{
@@ -154,6 +154,29 @@
   .driveFileRow:hover{ background:var(--lavender); }
   #driveStatus{ font-size:11.5px; color:var(--ink-2); margin-top:8px; min-height:14px; }
 
+  #btnMenu{ display:none; }
+
+  @media (max-width: 860px){
+    #btnMenu{ display:inline-flex; align-items:center; justify-content:center; padding:7px 10px; }
+    header{ flex-wrap:wrap; row-gap:8px; padding:10px 12px; }
+    header h1{ font-size:16px; }
+    header .proj{ order:5; flex:1 1 100%; max-width:none; }
+    header .kerf{ font-size:11.5px; }
+    header .actions{ flex-wrap:wrap; }
+    header button{ padding:7px 10px; font-size:11.5px; }
+
+    #left{
+      display:none; position:fixed; inset:0 auto 0 0; width:85vw; max-width:320px;
+      z-index:16; box-shadow:0 0 28px rgba(0,0,0,.3);
+    }
+    #left.open{ display:block; }
+    #right{
+      position:fixed; inset:0 0 0 auto; width:85vw; max-width:320px; z-index:16;
+      box-shadow:0 0 28px rgba(0,0,0,.3);
+    }
+    .btnrow{ flex-wrap:wrap; }
+  }
+
   #printArea{ display:none; }
   @media print{
     body *{ visibility:hidden; }
@@ -178,6 +201,7 @@
 <body>
 <div id="app">
   <header>
+    <button class="secondary" id="btnMenu" aria-label="Toggle panel">☰</button>
     <h1>🪚 CutBoard</h1>
     <div class="proj"><input id="projName" type="text" placeholder="Project name (e.g. Jessica's shutters)"></div>
     <div class="kerf">
@@ -1090,16 +1114,21 @@
     return [ (e.clientX - r.left) * devicePixelRatio, (e.clientY - r.top) * devicePixelRatio ];
   }
 
-  cv.addEventListener("mousedown", (e)=>{
+  // shared pointer logic used by both mouse and single-finger touch input
+  function pointerDown(clientX, clientY){
+    document.getElementById("left").classList.remove("open"); // get the drawer out of the way on phones
+    const r = cv.getBoundingClientRect();
+    const sx = (clientX - r.left) * devicePixelRatio;
+    const sy = (clientY - r.top) * devicePixelRatio;
+    const [wx,wy] = screenToWorld(sx,sy);
+
     if(activeMode){
-      const [wx,wy] = evtWorld(e);
       activeMode.points.push([wx,wy]);
       draw();
       return;
     }
     const sel = getSel();
     if(sel){
-      const [sx,sy] = evtScreen(e);
       const ci = handleHitTest(sel, sx, sy);
       if(ci >= 0){
         dragMode = "resize"; dragObj = sel; resizeCorner = ci;
@@ -1107,7 +1136,6 @@
         return;
       }
     }
-    const [wx,wy] = evtWorld(e);
     const hit = hitTest(wx,wy);
     if(hit){
       selectedId = hit.id;
@@ -1119,37 +1147,86 @@
     } else {
       selectedId = null;
       dragMode = "pan";
-      panStart = {x:e.clientX, y:e.clientY};
+      panStart = {x:clientX, y:clientY};
       objStart = {x:view.panX, y:view.panY};
       cv.classList.add("dragging");
     }
     syncSelPanel(); renderObjList(); draw();
-  });
-
-  window.addEventListener("mousemove", (e)=>{
+  }
+  function pointerMove(clientX, clientY){
+    const r = cv.getBoundingClientRect();
+    const sx = (clientX - r.left) * devicePixelRatio;
+    const sy = (clientY - r.top) * devicePixelRatio;
+    const [wx,wy] = screenToWorld(sx,sy);
     if(dragMode === "resize" && dragObj){
-      const [wx,wy] = evtWorld(e);
       resizeByCorner(dragObj, resizeCorner, wx, wy);
       syncSelPanel();
       draw();
     } else if(dragMode === "move" && dragObj){
-      const [wx,wy] = evtWorld(e);
       let nx = objStart.x + (wx - dragStart.x);
       let ny = objStart.y + (wy - dragStart.y);
       const snap = snapAgainstOthers(dragObj, nx, ny);
       dragObj.x = snap.x; dragObj.y = snap.y;
       draw();
     } else if(dragMode === "pan"){
-      view.panX = objStart.x + (e.clientX - panStart.x)/devicePixelRatio;
-      view.panY = objStart.y + (e.clientY - panStart.y)/devicePixelRatio;
+      view.panX = objStart.x + (clientX - panStart.x)/devicePixelRatio;
+      view.panY = objStart.y + (clientY - panStart.y)/devicePixelRatio;
       draw();
     }
-  });
-  window.addEventListener("mouseup", ()=>{
+  }
+  function pointerUp(){
     if(dragMode==="move" || dragMode==="resize") autosave();
     dragMode = null; dragObj = null;
     cv.classList.remove("dragging");
-  });
+  }
+
+  cv.addEventListener("mousedown", (e)=> pointerDown(e.clientX, e.clientY));
+  window.addEventListener("mousemove", (e)=> pointerMove(e.clientX, e.clientY));
+  window.addEventListener("mouseup", pointerUp);
+
+  // ---------- touch: single finger = same as mouse, two fingers = pinch-zoom/pan ----------
+  let pinch = null;
+  cv.addEventListener("touchstart", (e)=>{
+    if(e.touches.length === 1){
+      e.preventDefault();
+      pointerDown(e.touches[0].clientX, e.touches[0].clientY);
+    } else if(e.touches.length === 2){
+      e.preventDefault();
+      dragMode = null; dragObj = null; cv.classList.remove("dragging");
+      const [t1,t2] = e.touches;
+      const r = cv.getBoundingClientRect();
+      const midX = (t1.clientX+t2.clientX)/2 - r.left;
+      const midY = (t1.clientY+t2.clientY)/2 - r.top;
+      pinch = {
+        startDist: Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY),
+        startZoom: view.zoom,
+        worldMidX: (midX - view.panX)/view.zoom,
+        worldMidY: (midY - view.panY)/view.zoom
+      };
+    }
+  }, {passive:false});
+  cv.addEventListener("touchmove", (e)=>{
+    if(e.touches.length === 1 && !pinch){
+      e.preventDefault();
+      pointerMove(e.touches[0].clientX, e.touches[0].clientY);
+    } else if(e.touches.length === 2 && pinch){
+      e.preventDefault();
+      const [t1,t2] = e.touches;
+      const r = cv.getBoundingClientRect();
+      const midX = (t1.clientX+t2.clientX)/2 - r.left;
+      const midY = (t1.clientY+t2.clientY)/2 - r.top;
+      const dist = Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY);
+      view.zoom = Math.min(4, Math.max(0.02, pinch.startZoom * (dist/pinch.startDist)));
+      view.panX = midX - pinch.worldMidX*view.zoom;
+      view.panY = midY - pinch.worldMidY*view.zoom;
+      draw();
+    }
+  }, {passive:false});
+  cv.addEventListener("touchend", (e)=>{
+    if(e.touches.length === 0){ pointerUp(); pinch = null; }
+    else if(e.touches.length === 1){ pinch = null; dragMode = null; dragObj = null; cv.classList.remove("dragging"); }
+  }, {passive:false});
+  cv.addEventListener("touchcancel", ()=>{ pointerUp(); pinch = null; }, {passive:false});
 
   // snap dragged object's edges to other objects' edges, gap = kerf (axis-aligned only)
   function snapAgainstOthers(o, nx, ny){
@@ -1449,6 +1526,11 @@
     });
     if(res.ok){ setDriveStatus("Saved to Drive: "+name); refreshDriveList(); }
     else { setDriveStatus("Error saving ("+res.status+")"); }
+  });
+
+  // ---------- mobile: hamburger toggle for the left panel ----------
+  document.getElementById("btnMenu").addEventListener("click", ()=>{
+    document.getElementById("left").classList.toggle("open");
   });
 
   // ---------- init ----------
